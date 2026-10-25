@@ -1,0 +1,165 @@
+{
+  "version": 2,
+  "title": "User registration",
+  "generatedBy": "hand-written example",
+  "elements": [
+    {
+      "id": "E1",
+      "text": "# User registration\n\nUsers sign up with an email address and a password. This spec covers the\nregistration service only; the web form is out of scope.\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "E2",
+      "text": "## Background\n\nThe legacy hasher (`LegacyPasswordHasher`) stored unsalted SHA-1 hashes and is\nretired by this change.\n\n## Requirements\n\n- ",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "E3",
+      "text": "Email addresses **must** be unique.\n",
+      "tests": [
+        {
+          "file": "src/test/java/auth/UserServiceTest.java",
+          "symbol": "rejectsDuplicateEmail"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/UserService.java",
+          "symbol": "register"
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "text": "- Emails are normalised (trimmed, lower-cased) before storage.",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/UserService.java",
+          "symbol": "normalizeEmail"
+        }
+      ]
+    },
+    {
+      "id": "E5",
+      "text": " Mixed-case input such as `Alice@Example.COM` is accepted.\n",
+      "tests": [
+        {
+          "file": "src/test/java/auth/UserServiceTest.java",
+          "symbol": "acceptsMixedCaseEmail"
+        }
+      ],
+      "implementation": [],
+      "note": "starts mid-line; tests only"
+    },
+    {
+      "id": "E6",
+      "text": "- A password must satisfy the *password policy*:\n\n  | Rule               | Value |\n  |--------------------|-------|\n  | Minimum length     | 12    |\n  | Must contain digit | yes   |\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/auth/PasswordPolicyTest.java",
+          "symbol": "rejectsShortPassword"
+        },
+        {
+          "file": "src/test/java/auth/PasswordPolicyTest.java",
+          "symbol": "rejectsPasswordWithoutDigit"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/PasswordPolicy.java",
+          "symbol": "PasswordPolicy"
+        }
+      ]
+    },
+    {
+      "id": "E7",
+      "text": "- The email format is validated before anything else is checked.\n",
+      "tests": [
+        {
+          "file": "src/test/java/auth/EmailValidatorTest.java",
+          "symbol": "rejectsMalformedEmail"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/EmailValidator.java",
+          "symbol": "isValid"
+        },
+        {
+          "file": "src/main/java/auth/UserService.java",
+          "symbol": "register"
+        }
+      ]
+    },
+    {
+      "id": "E8",
+      "text": "- A welcome email is sent after a successful registration.\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/UserService.java",
+          "symbol": "sendWelcomeEmail"
+        }
+      ]
+    },
+    {
+      "id": "E9",
+      "text": "- Passwords are hashed with the injected `PasswordHasher` before storage.\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/UserService.java",
+          "symbol": "hashPassword"
+        }
+      ]
+    },
+    {
+      "id": "E10",
+      "text": "- Legacy SHA-1 hashing is removed.\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/LegacyPasswordHasher.java",
+          "symbol": "hash"
+        }
+      ]
+    },
+    {
+      "id": "E11",
+      "text": "- Duplicate lookup reuses `UserRepository.findByEmail` unchanged.\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/UserRepository.java",
+          "symbol": "findByEmail"
+        }
+      ]
+    },
+    {
+      "id": "E12",
+      "text": "\n## Example\n\n```java\n# not a heading\nservice.register(\"alice@example.com\", \"correct horse 1\");\n```\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "E13",
+      "text": "Display names may contain HTML such as <b>bold</b> or </script> and are stored\nverbatim; they must never be interpreted.\n",
+      "tests": [
+        {
+          "file": "src/test/java/auth/UserServiceTest.java",
+          "symbol": "keepsDisplayNameLiteral"
+        }
+      ],
+      "implementation": []
+    },
+    {
+      "id": "E14",
+      "text": "\n~~~\n# also not a heading\n~~~\n# Open questions\n\nNone.\n",
+      "tests": [],
+      "implementation": []
+    }
+  ]
+}

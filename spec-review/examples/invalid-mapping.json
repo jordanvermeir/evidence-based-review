@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "title": "Broken",
+  "elements": [
+    {
+      "id": "E1",
+      "text": "# Title\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "E2",
+      "text": "- Rule one.\n",
+      "tests": [
+        {
+          "file": "src/test/java/auth/UserServiceTest.java"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/auth/UserService.java",
+          "symbol": "register"
+        }
+      ]
+    },
+    {
+      "id": "E1",
+      "text": "- Rule two.\n",
+      "tests": [],
+      "implementation": []
+    }
+  ]
+}

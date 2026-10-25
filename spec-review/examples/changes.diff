@@ -1,0 +1,343 @@
+diff --git a/src/main/java/auth/EmailValidator.java b/src/main/java/auth/EmailValidator.java
+new file mode 100644
+index 0000000..516872e
+--- /dev/null
++++ b/src/main/java/auth/EmailValidator.java
+@@ -0,0 +1,13 @@
++package auth;
++
++import java.util.regex.Pattern;
++
++/** Checks the shape of an email address. */
++public class EmailValidator {
++
++    private static final Pattern SIMPLE = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
++
++    public boolean isValid(String email) {
++        return email != null && SIMPLE.matcher(email).matches();
++    }
++}
+\ No newline at end of file
+diff --git a/src/main/java/auth/LegacyPasswordHasher.java b/src/main/java/auth/LegacyPasswordHasher.java
+deleted file mode 100644
+index 139d969..0000000
+--- a/src/main/java/auth/LegacyPasswordHasher.java
++++ /dev/null
+@@ -1,20 +0,0 @@
+-package auth;
+-
+-import java.security.MessageDigest;
+-import java.util.HexFormat;
+-
+-/**
+- * Unsalted SHA-1 hashing. Do not use for new code.
+- */
+-@Deprecated
+-public class LegacyPasswordHasher {
+-
+-    public String hash(String password) {
+-        try {
+-            MessageDigest md = MessageDigest.getInstance("SHA-1");
+-            return HexFormat.of().formatHex(md.digest(password.getBytes()));
+-        } catch (Exception e) {
+-            throw new IllegalStateException(e);
+-        }
+-    }
+-}
+diff --git a/src/main/java/auth/PasswordRules.java b/src/main/java/auth/PasswordPolicy.java
+similarity index 65%
+rename from src/main/java/auth/PasswordRules.java
+rename to src/main/java/auth/PasswordPolicy.java
+index b629b25..66defa1 100644
+--- a/src/main/java/auth/PasswordRules.java
++++ b/src/main/java/auth/PasswordPolicy.java
+@@ -1,28 +1,31 @@
+ package auth;
+ 
+ /**
+  * Rules a password has to follow.
+  */
+-public final class PasswordRules {
++public final class PasswordPolicy {
+ 
+-    public static final int MIN_LENGTH = 8;
++    public static final int MIN_LENGTH = 12;
+ 
+-    private PasswordRules() {
++    public void check(String password) {
++        if (!isLongEnough(password) || !hasDigit(password)) {
++            throw new WeakPasswordException("Password must be " + MIN_LENGTH + "+ chars with a digit");
++        }
+     }
+ 
+     public static boolean isLongEnough(String password) {
+         return password != null && password.length() >= MIN_LENGTH;
+     }
+ 
+     public static boolean hasDigit(String password) {
+         return password.chars().anyMatch(Character::isDigit);
+     }
+ 
+     public static boolean hasLetter(String password) {
+         return password.chars().anyMatch(Character::isLetter);
+     }
+ 
+     public static boolean isBlank(String password) {
+         return password == null || password.isBlank();
+     }
+ }
+diff --git a/src/main/java/auth/UserService.java b/src/main/java/auth/UserService.java
+index 0a7a345..121fd65 100644
+--- a/src/main/java/auth/UserService.java
++++ b/src/main/java/auth/UserService.java
+@@ -1,74 +1,112 @@
+ package auth;
+ 
+ import java.util.List;
+ import java.util.Locale;
++import java.util.Objects;
+ 
+ /**
+  * Registers new users.
+  */
+ public class UserService {
+ 
++    private static final String DUPLICATE_MESSAGE = "Email already registered: {0}";
++
+     private final UserRepository repository;
+-    private final LegacyPasswordHasher hasher;
++    private final PasswordHasher hasher;
++    private final PasswordPolicy policy = new PasswordPolicy();
++    private final EmailValidator validator = new EmailValidator();
+ 
+-    public UserService(UserRepository repository) {
++    public UserService(UserRepository repository, PasswordHasher hasher) {
+         this.repository = repository;
+-        this.hasher = new LegacyPasswordHasher();
++        this.hasher = hasher;
++    }
++
++    /**
++     * Registers a user from a request object.
++     * Delegates to {@link #register(String, String)}.
++     */
++    public User register(RegistrationRequest request) {
++        return register(request.email(), request.password());
+     }
+ 
++    /**
++     * Registers a new user.
++     *
++     * @throws DuplicateEmailException if the email is already taken
++     */
++    @Transactional
++    @Audited(action = "register")
+     public User register(String email, String password) {
+-        User user = new User(email, hasher.hash(password));
++        String normalized = normalizeEmail(email);
++        if (!validator.isValid(normalized)) {
++            throw new IllegalArgumentException("Invalid email: {" + normalized + "}");
++        }
++        // A stray brace in a line comment: {
++        /* and another one } in a block comment */
++        if (repository.findByEmail(normalized).isPresent()) {
++            throw new DuplicateEmailException(DUPLICATE_MESSAGE.replace("{0}", normalized));
++        }
++        policy.check(password);
++        char open = '{';
++        String hash = hasher.hashPassword(password);
++        User user = new User(normalized, hash);
+         repository.save(user);
+         return user;
+     }
+ 
++    /** Trims and lower-cases an email address. */
++    String normalizeEmail(String email) {
++        Objects.requireNonNull(email, "email");
++        return email.trim().toLowerCase(Locale.ROOT);
++    }
++
+     public long count() {
+         return repository.count();
+     }
+ 
+     public List<User> findAll() {
+         return repository.findAll();
+     }
+ 
+     public boolean exists(String email) {
+-        return repository.findByEmail(email).isPresent();
++        return repository.findByEmail(normalizeEmail(email)).isPresent();
+     }
+ 
+     public void delete(String email) {
+         repository.findByEmail(email).ifPresent(repository::delete);
+     }
+ 
+     public void deleteAll() {
+         repository.deleteAll();
+     }
+ 
+     public User rename(String email, String displayName) {
+         User user = repository.findByEmail(email).orElseThrow();
+         user.setDisplayName(displayName);
+         repository.save(user);
+         return user;
+     }
+ 
+     public List<User> findByDomain(String domain) {
+         String suffix = "@" + domain.toLowerCase(Locale.ROOT);
+         return repository.findAll().stream()
+                 .filter(u -> u.email().endsWith(suffix))
+                 .toList();
+     }
+ 
+     public int purgeInactive(int days) {
+         int removed = 0;
+         for (User user : repository.findAll()) {
+             if (user.inactiveDays() > days) {
+                 repository.delete(user);
+                 removed++;
+             }
+         }
+         return removed;
+     }
+ 
+     @Override
+     public String toString() {
+-        return "UserService";
++        return "UserService[" + repository.count() + " users]";
+     }
+ }
+diff --git a/src/main/resources/logo.png b/src/main/resources/logo.png
+new file mode 100644
+index 0000000..029ace0
+Binary files /dev/null and b/src/main/resources/logo.png differ
+diff --git a/src/test/java/auth/EmailValidatorTest.java b/src/test/java/auth/EmailValidatorTest.java
+new file mode 100644
+index 0000000..6a50a5b
+--- /dev/null
++++ b/src/test/java/auth/EmailValidatorTest.java
+@@ -0,0 +1,23 @@
++package auth;
++
++import static org.junit.jupiter.api.Assertions.assertFalse;
++import static org.junit.jupiter.api.Assertions.assertTrue;
++
++import org.junit.jupiter.api.Test;
++
++class EmailValidatorTest {
++
++    private final EmailValidator validator = new EmailValidator();
++
++    @Test
++    void acceptsPlainAddress() {
++        assertTrue(validator.isValid("alice@example.com"));
++    }
++
++    @Test
++    void rejectsMalformedEmail() {
++        assertFalse(validator.isValid("alice@"));
++        assertFalse(validator.isValid("no-at-sign.example.com"));
++        assertFalse(validator.isValid("two@@example.com"));
++    }
++}
+diff --git a/src/test/java/auth/PasswordPolicyTest.java b/src/test/java/auth/PasswordPolicyTest.java
+new file mode 100644
+index 0000000..4e0b421
+--- /dev/null
++++ b/src/test/java/auth/PasswordPolicyTest.java
+@@ -0,0 +1,26 @@
++package auth;
++
++import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
++import static org.junit.jupiter.api.Assertions.assertThrows;
++
++import org.junit.jupiter.api.Test;
++
++class PasswordPolicyTest {
++
++    private final PasswordPolicy policy = new PasswordPolicy();
++
++    @Test
++    void rejectsShortPassword() {
++        assertThrows(WeakPasswordException.class, () -> policy.check("short1"));
++    }
++
++    @Test
++    void rejectsPasswordWithoutDigit() {
++        assertThrows(WeakPasswordException.class, () -> policy.check("correct horse battery"));
++    }
++
++    @Test
++    void acceptsLongPasswordWithDigit() {
++        assertDoesNotThrow(() -> policy.check("correct horse 1"));
++    }
++}
+diff --git a/src/test/java/auth/UserServiceTest.java b/src/test/java/auth/UserServiceTest.java
+index be1a2be..6c7e6ba 100644
+--- a/src/test/java/auth/UserServiceTest.java
++++ b/src/test/java/auth/UserServiceTest.java
+@@ -1,31 +1,59 @@
+ package auth;
+ 
+ import static org.junit.jupiter.api.Assertions.assertEquals;
++import static org.junit.jupiter.api.Assertions.assertThrows;
+ 
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ 
+ class UserServiceTest {
+ 
++    private static final String PASSWORD = "correct horse 1";
++
+     private InMemoryUserRepository repository;
+     private UserService service;
+ 
+     @BeforeEach
+     void setUp() {
+         repository = new InMemoryUserRepository();
+-        service = new UserService(repository);
++        service = new UserService(repository, new BcryptPasswordHasher());
+     }
+ 
+     @Test
+     void registersUser() {
+-        service.register("alice@example.com", "secret123");
++        service.register("alice@example.com", PASSWORD);
+         assertEquals(1, service.count());
+     }
+ 
++    /** Same address twice, the second time with different case. */
++    @Test
++    void rejectsDuplicateEmail() {
++        service.register("alice@example.com", PASSWORD);
++        assertThrows(DuplicateEmailException.class,
++                () -> service.register(" Alice@Example.COM ", PASSWORD));
++    }
++
++    @Test
++    void acceptsMixedCaseEmail() {
++        User user = service.register("Alice@Example.COM", PASSWORD);
++        assertEquals("alice@example.com", user.email());
++    }
++
++    @Test
++    void keepsDisplayNameLiteral() {
++        User user = service.register("carol@example.com", PASSWORD);
++        String name = "<b>Carol</b></script><script>alert('x')</script>";
++        service.rename(user.email(), name);
++        String expected = """
++                {"name": "<b>Carol</b></script><script>alert('x')</script>"}
++                """;
++        assertEquals(expected.strip(), user.toJson());
++    }
++
+     @Test
+     void deletesUser() {
+-        service.register("bob@example.com", "secret123");
++        service.register("bob@example.com", PASSWORD);
+         service.delete("bob@example.com");
+         assertEquals(0, service.count());
+     }
+ }
