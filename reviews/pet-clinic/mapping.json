@@ -1,0 +1,553 @@
+{
+  "version": 2,
+  "diffSha256": "5eb7960d3a4d7064c596c1e1236059262d6962e41190ef94638429d80abdcc81",
+  "title": "spring-petclinic-rest #329 — Paginated pet listing",
+  "source": {
+    "pullRequest": "https://github.com/spring-petclinic/spring-petclinic-rest/pull/329",
+    "diff": "git diff -M -U999999 7690a61^1...pr-329"
+  },
+  "elements": [
+    {
+      "id": "S0",
+      "text": "# Paginated Pet Listing\n\n## Context\n\nVeterinary clinic staff and API consumers need to browse the pets registered in the clinic. As the number of pets grows, retrieving the entire list becomes inconvenient. Consumers need to request manageable portions of the list and navigate between them without losing track of the overall result set.\n\n## Goal\n\nProvide a paginated pet listing through the version 2 REST API, while maintaining the behavior of the existing pet-listing API for current consumers.\n\n## Functional requirements\n\n### Retrieving pets\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "PET-001",
+      "text": "**PET-001 — Paginated listing.** An API consumer can retrieve registered pets using `GET /api/v2/pets`. The response contains only the pets belonging to the requested page, rather than the complete collection.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/V2RestControllersTests.java",
+          "symbol": "testGetPetsPageSuccess",
+          "lines": "new:117-134"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:872-924"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/service/ClinicServiceImpl.java",
+          "symbol": "findPets",
+          "lines": "new:71-75"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/springdatajpa/SpringDataPetRepository.java",
+          "symbol": "findAll",
+          "lines": "new:44-48"
+        }
+      ],
+      "reviewNote": "Endpoint exists; only a mocked controller test."
+    },
+    {
+      "id": "PET-002",
+      "text": "**PET-002 — Page selection.** Consumers can specify the page using a zero-based `page` query parameter. Page `0` represents the first page; subsequent page numbers retrieve subsequent portions of the same ordered collection.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/V2RestControllersTests.java",
+          "symbol": "testGetPetsPageSuccess",
+          "lines": "new:117-134"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:872-924"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        }
+      ],
+      "reviewNote": "page is passed to PageRequest; repositories use the offset."
+    },
+    {
+      "id": "PET-003",
+      "text": "**PET-003 — Page size.** Consumers can specify the maximum number of pets returned using a positive integer `size` query parameter. The number of pets returned must not exceed the requested size. The final page may contain fewer pets.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/V2RestControllersTests.java",
+          "symbol": "testGetPetsPageSuccess",
+          "lines": "new:117-134"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:872-924"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        }
+      ],
+      "reviewNote": "size is passed through; OpenAPI declares minimum 1, maximum 100 (spec has no maximum)."
+    },
+    {
+      "id": "PET-004",
+      "text": "**PET-004 — Default paging.** When `page` or `size` is omitted, the API applies a consistent documented default for that parameter. The response must make the effective paging values clear.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:876-900"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/mapper/PetMapper.java",
+          "symbol": "toPetPageDto",
+          "lines": "new:43-51"
+        }
+      ],
+      "reviewNote": "Defaults 0/20 are set in both the controller and the OpenAPI contract; untested."
+    },
+    {
+      "id": "S5",
+      "text": "### Ordering and page consistency\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "PET-005",
+      "text": "**PET-005 — Consistent ordering.** Pets must be returned in a consistent order so that successive pages can be browsed predictably. Repeating the same request against unchanged data produces the same ordering.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/springdatajpa/SpringDataPetRepository.java",
+          "symbol": "findAll",
+          "lines": "new:44-48"
+        }
+      ],
+      "reviewNote": "Ordering by id: hardcoded in JDBC/JPA, Sort.by(\"id\") in the controller for Spring Data."
+    },
+    {
+      "id": "PET-006",
+      "text": "**PET-006 — Name ordering.** Consumers can request that pets be ordered alphabetically by name, either ascending or descending. Ordering is applied across the entire matching collection *before* the requested page is selected. Pets with identical names must have a deterministic relative order, preventing duplicates or omissions when navigating pages against unchanged data. When no ordering preference is provided, the default ordering is used.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:876-900"
+        }
+      ],
+      "reviewNote": "NOT IMPLEMENTED: no sort parameter; only id ordering exists."
+    },
+    {
+      "id": "S8",
+      "text": "### Response information\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "PET-007",
+      "text": "**PET-007 — Pet details.** Each listed pet contains the pet information available to consumers of the existing pet-listing API. Pagination must not remove existing pet fields.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/V2RestControllersTests.java",
+          "symbol": "testGetPetsPageSuccess",
+          "lines": "new:117-134"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/mapper/PetMapper.java",
+          "symbol": "toPetPageDto",
+          "lines": "new:43-51"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "PetPage",
+          "lines": "new:2109-2153"
+        }
+      ],
+      "reviewNote": "Content uses the same PetDto mapping as v1; the test checks only id and name."
+    },
+    {
+      "id": "PET-008",
+      "text": "**PET-008 — Pagination metadata.** The response provides the current page number, configured page size, total number of matching pets, and total number of pages. Consumers can use this information to determine whether additional pages exist.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/V2RestControllersTests.java",
+          "symbol": "testGetPetsPageSuccess",
+          "lines": "new:117-134"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/mapper/PetMapper.java",
+          "symbol": "toPetPageDto",
+          "lines": "new:43-51"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "PetPage",
+          "lines": "new:2109-2153"
+        }
+      ],
+      "reviewNote": "page, size, totalElements and totalPages are mapped and asserted."
+    },
+    {
+      "id": "PET-009",
+      "text": "**PET-009 — Empty results.** When the clinic has no registered pets, the API returns a successful response with an empty pet list and coherent pagination metadata. A request for a page beyond the last available page also returns an empty list rather than pets from a different page.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/mapper/PetMapper.java",
+          "symbol": "toPetPageDto",
+          "lines": "new:43-51"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        }
+      ],
+      "reviewNote": "Relies on Spring's PageImpl; no test for empty or out-of-range pages."
+    },
+    {
+      "id": "S12",
+      "text": "### Compatibility and input handling\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "PET-010",
+      "text": "**PET-010 — Existing API compatibility.** The existing `GET /api/pets` endpoint retains its established behavior and response shape. Introducing the version 2 endpoint must not require existing consumers to change their requests.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/PetRestControllerV1Tests.java",
+          "symbol": "testGetAllPetsSuccess",
+          "lines": "new:127-141"
+        },
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/PetRestControllerV1Tests.java",
+          "symbol": "testGetAllPetsNotFound",
+          "lines": "new:143-151"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v1/PetRestControllerV1.java",
+          "symbol": "listPets",
+          "lines": "new:62-70"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPets",
+          "lines": "new:838-871"
+        }
+      ],
+      "reviewNote": "v1 controller only renamed/moved; path and response unchanged (including 404 on an empty list)."
+    },
+    {
+      "id": "PET-011",
+      "text": "**PET-011 — Invalid paging input.** Negative page numbers, non-positive page sizes, and non-numeric paging values are rejected with a client error rather than being silently interpreted as valid requests.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:876-900"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        }
+      ],
+      "reviewNote": "Only via OpenAPI minimum constraints on the generated interface; untested."
+    },
+    {
+      "id": "S15",
+      "text": "## Acceptance scenarios\n\n",
+      "tests": [],
+      "implementation": []
+    },
+    {
+      "id": "AC-01",
+      "text": "**AC-01 — First page.** Given 45 registered pets, when a consumer requests `GET /api/v2/pets?page=0&size=20`, then the response contains 20 pets and reports 45 total pets across 3 pages.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/V2RestControllersTests.java",
+          "symbol": "testGetPetsPageSuccess",
+          "lines": "new:117-134"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        }
+      ],
+      "reviewNote": "No test with 45 pets / size 20; the closest test uses 2 pets, size 5."
+    },
+    {
+      "id": "AC-02",
+      "text": "**AC-02 — Final page.** Given the same 45 pets, when a consumer requests page 2 with size 20, then the response contains the remaining 5 pets.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        }
+      ],
+      "reviewNote": "Untested."
+    },
+    {
+      "id": "AC-03",
+      "text": "**AC-03 — Different pages.** Given an unchanged collection, when a consumer requests consecutive pages of the same size and ordering, then pets do not appear on more than one page.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/springdatajpa/SpringDataPetRepository.java",
+          "symbol": "findAll",
+          "lines": "new:44-48"
+        }
+      ],
+      "reviewNote": "Plausible with unique id ordering; untested."
+    },
+    {
+      "id": "AC-04",
+      "text": "**AC-04 — Ascending names.** Given pets named Bella, Archie, Charlie, and Daisy, when the consumer requests ascending name ordering with page size 2, then the first page contains Archie and Bella, and the second contains Charlie and Daisy.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:876-900"
+        }
+      ],
+      "reviewNote": "NOT MET: no name ordering."
+    },
+    {
+      "id": "AC-05",
+      "text": "**AC-05 — Descending names.** Given the same pets, when the consumer requests descending name ordering with page size 2, then the first page contains Daisy and Charlie.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:876-900"
+        }
+      ],
+      "reviewNote": "NOT MET: no name ordering."
+    },
+    {
+      "id": "AC-06",
+      "text": "**AC-06 — Duplicate names.** Given multiple pets with the same name, when the consumer browses successive pages against unchanged data, then each pet appears exactly once.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v2/PetRestControllerV2.java",
+          "symbol": "listPetsPage",
+          "lines": "new:31-39"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/springdatajpa/SpringDataPetRepository.java",
+          "symbol": "findAll",
+          "lines": "new:44-48"
+        }
+      ],
+      "reviewNote": "Satisfied by id ordering only because name ordering does not exist; untested."
+    },
+    {
+      "id": "AC-07",
+      "text": "**AC-07 — Empty clinic.** Given no registered pets, when the consumer requests the first page, then the result contains an empty list and reports zero total pets and zero total pages.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/mapper/PetMapper.java",
+          "symbol": "toPetPageDto",
+          "lines": "new:43-51"
+        }
+      ],
+      "reviewNote": "Untested."
+    },
+    {
+      "id": "AC-08",
+      "text": "**AC-08 — Out-of-range page.** Given 45 registered pets, when the consumer requests page 9 with size 20, then the response contains an empty list and still reports the correct collection totals.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/mapper/PetMapper.java",
+          "symbol": "toPetPageDto",
+          "lines": "new:43-51"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jdbc/JdbcPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:153-182"
+        },
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/repository/jpa/JpaPetRepositoryImpl.java",
+          "symbol": "findAll",
+          "lines": "new:78-87"
+        }
+      ],
+      "reviewNote": "Untested."
+    },
+    {
+      "id": "AC-09",
+      "text": "**AC-09 — Invalid page.** When the consumer requests a negative page number or a page size of zero, then the API returns a client error.\n\n",
+      "tests": [],
+      "implementation": [
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPetsPage",
+          "lines": "new:876-900"
+        }
+      ],
+      "reviewNote": "Depends on generated bean validation; untested."
+    },
+    {
+      "id": "AC-10",
+      "text": "**AC-10 — Backward compatibility.** Given existing consumers using `GET /api/pets`, when the new paginated API becomes available, then the existing endpoint continues to return its established response.\n\n",
+      "tests": [
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/PetRestControllerV1Tests.java",
+          "symbol": "testGetAllPetsSuccess",
+          "lines": "new:127-141"
+        },
+        {
+          "file": "src/test/java/org/springframework/samples/petclinic/rest/controller/PetRestControllerV1Tests.java",
+          "symbol": "testGetAllPetsNotFound",
+          "lines": "new:143-151"
+        }
+      ],
+      "implementation": [
+        {
+          "file": "src/main/java/org/springframework/samples/petclinic/rest/controller/v1/PetRestControllerV1.java",
+          "symbol": "listPets",
+          "lines": "new:62-70"
+        },
+        {
+          "file": "src/main/resources/openapi.yml",
+          "symbol": "listPets",
+          "lines": "new:838-871"
+        }
+      ],
+      "reviewNote": "Existing v1 test kept, only renamed."
+    },
+    {
+      "id": "S26",
+      "text": "## Out of scope\n\nCreating, modifying, or deleting pets; filtering by owner or other attributes; and changes to existing pet records are outside this feature.\n",
+      "tests": [],
+      "implementation": []
+    }
+  ]
+}
