@@ -7,6 +7,7 @@ template.html. See README.md for the input formats.
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -84,8 +85,9 @@ def parse_diff(text):
     """Parse a unified git diff into a list of file dicts.
 
     Each file: old_path, new_path, path, new, deleted, renamed, binary,
-    hunks (list of (old_start, old_count, new_start, new_count)) and
-    lines (hunk headers and code lines, without their +/-/space marker).
+    hunks (list of (old_start, old_count, new_start, new_count)),
+    lines (hunk headers and code lines, without their +/-/space marker) and
+    sides ({"old": {line_no: text}, "new": {line_no: text}}).
     """
     files = []
     lines = text.split("\n")
@@ -99,7 +101,8 @@ def parse_diff(text):
             continue
         old_path, new_path = split_git_header(line[len("diff --git "):])
         f = {"old_path": old_path, "new_path": new_path, "new": False, "deleted": False,
-             "renamed": False, "binary": False, "hunks": [], "lines": []}
+             "renamed": False, "binary": False, "hunks": [], "lines": [],
+             "sides": {"old": {}, "new": {}}}
         files.append(f)
         i += 1
         while i < n:
@@ -114,6 +117,7 @@ def parse_diff(text):
                 f["hunks"].append((old_start, old_count, new_start, new_count))
                 f["lines"].append(m.group(5))
                 old_left, new_left = old_count, new_count
+                old_no, new_no = old_start, new_start
                 i += 1
                 while i < n and (old_left > 0 or new_left > 0):
                     row = lines[i]
@@ -121,12 +125,19 @@ def parse_diff(text):
                     if tag == "\\":
                         pass
                     elif tag == "+":
+                        f["sides"]["new"][new_no] = row[1:]
                         new_left -= 1
+                        new_no += 1
                     elif tag == "-":
+                        f["sides"]["old"][old_no] = row[1:]
                         old_left -= 1
+                        old_no += 1
                     elif tag == " " or row == "":
+                        f["sides"]["old"][old_no] = f["sides"]["new"][new_no] = row[1:]
                         old_left -= 1
                         new_left -= 1
+                        old_no += 1
+                        new_no += 1
                     else:
                         break
                     if tag != "\\":
@@ -179,6 +190,29 @@ def is_complete(f):
 
 def symbol_pattern(symbol):
     return re.compile(r"(?<![\w$])" + re.escape(symbol) + r"(?![\w$])", re.ASCII)
+
+
+LINES_RE = re.compile(r"^(old|new):(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)$")
+
+
+def parse_lines(value):
+    """Parse 'new:10-20,40' into ('new', [(10, 20), (40, 40)]).
+
+    Raises ValueError with a short reason when the value is malformed.
+    """
+    if not isinstance(value, str):
+        raise ValueError("must be a string like \"new:10-20\"")
+    m = LINES_RE.match(value.replace(" ", ""))
+    if not m:
+        raise ValueError("must look like \"new:10-20\" or \"old:5-8,12\", got %s" % json.dumps(value))
+    ranges = []
+    for part in m.group(2).split(","):
+        lo, _, hi = part.partition("-")
+        lo, hi = int(lo), int(hi or lo)
+        if lo < 1 or hi < lo:
+            raise ValueError("invalid range %s in %s" % (part, json.dumps(value)))
+        ranges.append((lo, hi))
+    return m.group(1), ranges
 
 
 # --------------------------------------------------------------------------
@@ -270,7 +304,30 @@ def validate_mapping(m):
                         errors.append('%s: missing "%s"' % (rloc, key))
                     elif not _is_nonempty_str(ref[key]):
                         errors.append('%s: "%s" must be a non-empty string' % (rloc, key))
+                if "lines" in ref:
+                    try:
+                        parse_lines(ref["lines"])
+                    except ValueError as e:
+                        errors.append('%s: "lines" %s' % (rloc, e))
     return errors
+
+
+def check_diff_hash(mapping, diff_bytes, diff_name):
+    """Error message when mapping.diffSha256 is present and doesn't match, else None."""
+    if "diffSha256" not in mapping:
+        return None
+    expected = mapping["diffSha256"]
+    if not (isinstance(expected, str) and re.match(r"^[0-9a-fA-F]{64}$", expected)):
+        return "diffSha256: must be a 64-character hex SHA-256"
+    actual = hashlib.sha256(diff_bytes).hexdigest()
+    if expected.lower() != actual:
+        return ("diffSha256 does not match %s (mapping was written for another diff; "
+                "expected %s, got %s)" % (diff_name, expected.lower(), actual))
+    return None
+
+
+def format_lines(side, ranges):
+    return "%s:%s" % (side, ",".join(str(a) if a == b else "%d-%d" % (a, b) for a, b in ranges))
 
 
 def collect_warnings(mapping, files):
@@ -288,6 +345,18 @@ def collect_warnings(mapping, files):
                     warnings.append("%s: file %s not in diff" % (loc, ref["file"]))
                     continue
                 pattern = symbol_pattern(ref["symbol"])
+                if "lines" in ref:
+                    side, ranges = parse_lines(ref["lines"])
+                    numbered = f["sides"][side]
+                    wanted = [no for lo, hi in ranges for no in range(lo, hi + 1)]
+                    label = format_lines(side, ranges)
+                    if not all(no in numbered for no in wanted):
+                        warnings.append("%s: lines %s not in the diff of %s"
+                                        % (loc, label, ref["file"]))
+                    elif not any(pattern.search(numbered[no]) for no in wanted):
+                        warnings.append('%s: symbol "%s" not found in lines %s of %s'
+                                        % (loc, ref["symbol"], label, ref["file"]))
+                    continue
                 if not any(pattern.search(line) for line in f["lines"]):
                     warnings.append('%s: symbol "%s" not found in %s'
                                     % (loc, ref["symbol"], ref["file"]))
@@ -342,6 +411,11 @@ def build(mapping_path, diff_path, template_path):
 
     mapping = load_mapping(mapping_text, os.path.basename(mapping_path))
     errors = validate_mapping(mapping)
+    if isinstance(mapping, dict):
+        # The diff was decoded from UTF-8 without newline translation, so this is its exact bytes.
+        hash_error = check_diff_hash(mapping, diff_text.encode("utf-8"), os.path.basename(diff_path))
+        if hash_error:
+            errors.append(hash_error)
     files = parse_diff(diff_text)
     if not files:
         errors.append("%s: no 'diff --git' file sections found" % os.path.basename(diff_path))

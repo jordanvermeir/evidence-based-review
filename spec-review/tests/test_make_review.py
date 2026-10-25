@@ -227,6 +227,29 @@ class ErrorTests(GeneratorTestCase):
                 m["elements"][1]["implementation"] = [ref("src/Foo.java", "Foo"), r]
                 self.assertMappingFails(m, "elements[1].implementation[1]: " + msg)
 
+    def test_malformed_lines(self):
+        cases = [(42, 'must be a string like "new:10-20"'),
+                 ("10-20", 'must look like "new:10-20" or "old:5-8,12", got "10-20"'),
+                 ("both:1-2", 'must look like'),
+                 ("new:", 'must look like'),
+                 ("new:5-3", 'invalid range 5-3 in "new:5-3"'),
+                 ("new:0-3", 'invalid range 0-3 in "new:0-3"')]
+        for value, msg in cases:
+            with self.subTest(lines=value):
+                m = valid_mapping()
+                m["elements"][1]["implementation"][0]["lines"] = value
+                self.assertMappingFails(m, 'elements[1].implementation[0]: "lines" ' + msg)
+
+    def test_diff_hash_mismatch(self):
+        m = valid_mapping()
+        m["diffSha256"] = "0" * 64
+        self.assertMappingFails(m, "diffSha256 does not match changes.diff (mapping was written for another diff")
+
+    def test_diff_hash_malformed(self):
+        m = valid_mapping()
+        m["diffSha256"] = "abc"
+        self.assertMappingFails(m, "diffSha256: must be a 64-character hex SHA-256")
+
     def test_diff_without_file_sections(self):
         self.assertFails(self.generate(diff="just some text\n"),
                          "changes.diff: no 'diff --git' file sections found")
@@ -304,6 +327,54 @@ class WarningTests(GeneratorTestCase):
     def test_no_linked_elements(self):
         m = {"version": 2, "elements": [element("E1", "# Only text\n")]}
         self.assertWarning(self.generate(m), "no linked elements", 1)
+
+    def generate_with_lines(self, lines, symbol="register", diff=DIFF):
+        m = valid_mapping()
+        m["elements"][1]["implementation"] = [dict(ref("src/Foo.java", symbol), lines=lines)]
+        return self.generate(m, diff)
+
+    def test_lines_valid(self):
+        for lines in ("new:2-6", "new:2", "old:2-3", "new:1,2-3", "new: 2 - 6"):
+            with self.subTest(lines=lines):
+                code, _, err = self.generate_with_lines(lines)
+                self.assertEqual((code, err), (0, ""))
+
+    def test_lines_not_in_diff(self):
+        self.assertWarning(self.generate_with_lines("new:5-9"),
+                           "elements[1] (E2) implementation[0]: lines new:5-9 not in the diff "
+                           "of src/Foo.java", 1)
+
+    def test_lines_outside_hunk_of_partial_diff(self):
+        code, _, err = self.generate_with_lines("new:1-11", diff=PARTIAL_DIFF)
+        self.assertEqual(code, 0)
+        self.assertIn("warning: elements[1] (E2) implementation[0]: lines new:1-11 not in the diff", err)
+
+    def test_lines_without_symbol(self):
+        self.assertWarning(self.generate_with_lines("new:4-6"),
+                           'elements[1] (E2) implementation[0]: symbol "register" not found in '
+                           'lines new:4-6 of src/Foo.java', 1)
+
+    def test_removed_line_only_on_old_side(self):
+        # Old line 3 is "save(email);"; on the new side line 3 is the added String line.
+        code, _, err = self.generate_with_lines("old:3", symbol="save")
+        self.assertEqual((code, err), (0, ""))
+        self.assertWarning(self.generate_with_lines("new:3", symbol="save"),
+                           'elements[1] (E2) implementation[0]: symbol "save" not found in '
+                           'lines new:3 of src/Foo.java', 1)
+
+    def test_lines_on_missing_side_of_deleted_file(self):
+        diff = ("diff --git a/src/Foo.java b/src/Foo.java\ndeleted file mode 100644\n"
+                "--- a/src/Foo.java\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-class Foo {\n-}\n")
+        code, _, err = self.generate_with_lines("new:1", symbol="Foo", diff=diff)
+        self.assertEqual(code, 0)
+        self.assertIn("lines new:1 not in the diff", err)
+
+    def test_matching_diff_hash(self):
+        import hashlib
+        m = valid_mapping()
+        m["diffSha256"] = hashlib.sha256(DIFF.encode("utf-8")).hexdigest().upper()
+        code, _, err = self.generate(m)
+        self.assertEqual((code, err), (0, ""))
 
     def test_deleted_file_matched_by_old_path(self):
         diff = ("diff --git a/src/Old.java b/src/Old.java\ndeleted file mode 100644\n"

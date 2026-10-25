@@ -64,6 +64,15 @@ newlines. An element may start or end mid-line.
   empty. An element with both arrays empty is **unlinked**, such as a heading or intro text.
 - `file` is the repo-relative path as it appears in the diff (the `b/` path, or the `a/` path
   for a deleted file). `symbol` is a method or class name, matched as a whole word.
+- `lines` (optional, per reference) names the exact lines to show, as `side:ranges`:
+  `"new:31-39"`, `"old:12-19"` (a deleted method only has old-side numbers) or several
+  ranges such as `"new:10-20,40-55"`. When present it takes precedence over locating the
+  symbol, and it works for any file type (YAML, SQL, Kotlin…). The symbol must still occur
+  somewhere in those lines; that catches miscounted or wrong-side numbers. Get the numbers
+  from a tool (e.g. `grep -n` on the checked-out file), not by counting diff lines.
+- `diffSha256` (optional, top level) is the SHA-256 of the diff file the mapping was written
+  for (`shasum -a 256 changes.diff`). A mapping and its diff are a 1:1 snapshot; with this
+  field the generator refuses to combine a mapping with any other diff.
 - Recommended granularity: one element per requirement sentence or bullet, with unlinked
   elements for the text in between.
 - Unknown extra fields are ignored.
@@ -82,11 +91,14 @@ unchanged), never as unimplemented.
 
 **Errors** (exit 1): missing or unreadable inputs or template; invalid JSON (with line and
 column); wrong `version`; missing, empty or non-array `elements`; missing or wrongly typed
-element fields; duplicate ids; malformed references; a diff without any `diff --git` section.
+element fields; duplicate ids; malformed references or `lines`; a malformed or non-matching
+`diffSha256`; a diff without any `diff --git` section.
 
 **Warnings** (the page is still written, and the same list appears in the page):
 - a referenced file is not in the diff;
 - a symbol does not occur as a whole word anywhere in its file's diff;
+- a reference's `lines` are not (all) in the diff on that side, or don't contain its symbol.
+  The page then falls back to locating the symbol;
 - the diff has limited context for some files;
 - no element is linked.
 
@@ -109,7 +121,8 @@ or fully tested.
 
 ### How symbols are located
 
-A declaration is a whole-word occurrence of the symbol in code (not in a string or comment)
+References with valid `lines` skip this entirely: the page shows exactly those lines. For
+all other references, a declaration is a whole-word occurrence of the symbol in code (not in a string or comment)
 that is followed by `(` or preceded by `class` / `interface` / `enum` / `record` /
 `@interface`, with a `{` before any `;`. Calls such as `service.register(x);` and abstract
 methods therefore don't count. The new side is searched first, then the old side (for removed
@@ -137,7 +150,8 @@ python3 make-review.py examples/invalid-mapping.json examples/changes.diff      
 | New files, file without trailing newline | E7 → `EmailValidator`, tests |
 | Symbol with no mentions (warning + fallback) | E8 → `sendWelcomeEmail` |
 | Symbol mentioned but never declared (fallback, highlighted) | E9 → `hashPassword` |
-| Deleted file (declaration found on the old side) | E10 → `LegacyPasswordHasher.hash` |
+| Explicit `lines` on the new side | E7 → `EmailValidator.isValid` (`new:10-12`) |
+| Deleted file, explicit `lines` on the old side | E10 → `LegacyPasswordHasher.hash` (`old:12-19`) |
 | File not in diff | E11 → `UserRepository` |
 | Fenced blocks containing `# not a heading` (``` and ~~~) | E12, E14 |
 | `<b>` and `</script>` in spec and diff, rendered literally | E13 → `keepsDisplayNameLiteral` |
@@ -162,6 +176,6 @@ pages in current Chrome, Edge, Firefox and Safari.
 ## Known limitations
 
 - Quoted diff paths with escape sequences are only supported for simple cases.
-- Symbol location is heuristic and aimed at C-like languages.
+- Symbol location is heuristic and aimed at C-like languages; use `lines` for anything else.
 - No persistence, comments, syntax highlighting or Markdown rendering. These are out of
   scope for the PoC.

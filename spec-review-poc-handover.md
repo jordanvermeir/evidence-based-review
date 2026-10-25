@@ -85,7 +85,9 @@ Rules:
 | `elements[].tests` | yes | Array of references (may be empty). |
 | `elements[].implementation` | yes | Array of references (may be empty). |
 | reference `.file` | yes | Repo-relative path. Must equal the diff's `b/` path (or the `a/` path for deleted files). |
-| reference `.symbol` | yes | Method or class name, matched as a whole word (§7). Advisory, not a guarantee. |
+| reference `.symbol` | yes | Method or class name, matched as a whole word (§7). Advisory, not a guarantee. Also the label shown for the reference, and the check on `lines`. |
+| reference `.lines` | no | Exact lines to show: `side:ranges`, e.g. `new:31-39`, `old:12-19` or `new:10-20,40`. `side` is `old` or `new`, line numbers are 1-based and inclusive. Takes precedence over locating the symbol (§7). The symbol must occur in at least one of these lines. |
+| `diffSha256` | no | Lowercase or uppercase hex SHA-256 of the exact bytes of the diff this mapping was written for. A mapping and its diff form a 1:1 snapshot. |
 
 - The whole spec must be covered, including headings, intro text and background. Elements with both lists empty are **unlinked**. All others are **linked**.
 - Recommended granularity, as guidance for the agent: one element per requirement sentence or bullet, with unlinked elements for the text in between.
@@ -129,14 +131,17 @@ Behaviour:
 - Invalid JSON, reported with line and column.
 - `version` ≠ 2, `elements` missing, empty or not an array.
 - An element is missing `id` / `text` / `tests` / `implementation`, has a wrong type or empty `text`, or has a duplicate `id`.
-- A reference is not an object, or has a missing/empty `file` or `symbol`.
+- A reference is not an object, or has a missing/empty `file` or `symbol`, or a malformed `lines` (wrong syntax, a line below 1, or a range whose end is before its start).
+- `diffSha256` is present but not a 64-character hex string, or does not match the SHA-256 of the diff file. The message shows both hashes.
 - The diff contains no `diff --git` file sections.
 
 Each error message names the location, e.g. `error: elements[3].tests[0]: missing "symbol"`.
 
 **Warnings** (non-fatal):
 - `elements[i] (E7) tests[0]: file src/…/Foo.java not in diff`
-- `elements[i] (E7) implementation[1]: symbol "register" not found in src/…/UserService.java`. This fires when the symbol doesn't appear as a whole word in any diff line of that file (headers, context, added or removed lines).
+- `elements[i] (E7) implementation[1]: symbol "register" not found in src/…/UserService.java`. This fires when the symbol doesn't appear as a whole word in any diff line of that file (headers, context, added or removed lines). It applies to references without `lines`.
+- `elements[i] (E7) implementation[1]: lines new:31-45 not in the diff of src/…/Foo.java`. This fires when any line of the given ranges is absent from that side of the diff (beyond the end of the file, outside the hunks of a limited-context diff, or the missing side of a new or deleted file).
+- `elements[i] (E7) implementation[1]: symbol "register" not found in lines new:34-36 of src/…/Foo.java`. This fires when all lines exist but none contains the symbol as a whole word.
 - `diff has limited context for N file(s) (e.g. src/…/Foo.java); use -U99999 for expandable files`. See §8.4 for detection.
 - `no linked elements` (every element has empty lists).
 
@@ -154,7 +159,9 @@ Each error message names the location, e.g. `error: elements[3].tests[0]: missin
 
 ## 7. Locating a symbol in a file (viewer)
 
-Input: the parsed rows of one file (§8.1) and a `symbol`.
+Input: the parsed rows of one file (§8.1), a `symbol` and optionally `lines`.
+
+0. **Explicit lines:** if the reference has `lines`, map each line number on the given side (`new`: context + added rows, `old`: context + removed rows) to its unified row. If every line exists and the symbol occurs in at least one of them, those ranges are the visible ranges (mapped to unified rows as in step 5, per hunk) and steps 1–5 are skipped. The file header says "Showing lines `new:31-39` from the mapping." Otherwise the header shows a warning ("Lines … are not in the diff" or "Symbol … is not in lines …"), and location continues with step 1.
 
 1. **Mentions:** rows whose text contains `symbol` as a whole word (`(?<![\w$])symbol(?![\w$])`, regex-escaped).
 2. **Declaration candidates:** mentions where the symbol is immediately followed by optional whitespace and `(`, or preceded by `class`, `interface`, `enum`, `record` or `@interface`, **and** where scanning forward from the symbol (across rows) a `{` appears before any `;`. This excludes calls (`service.register(x);`) and abstract/interface declarations.
@@ -171,7 +178,7 @@ Outcomes:
 - **Mentions but no declaration:** the fallback view (§8.3) is shown, mention rows are highlighted, and a note says "declaration of `symbol` not located; showing all changes".
 - **No mentions:** the fallback view is shown with the warning "symbol `symbol` not found in this file; showing all changes".
 
-Brace matching is a heuristic aimed at C-like languages (Java, Kotlin, C#, JS/TS, Go…). For other languages the fallback applies, and that is acceptable for the PoC.
+Brace matching is a heuristic aimed at C-like languages (Java, Kotlin, C#, JS/TS, Go…). For other languages the fallback applies unless the mapping provides `lines`, which is the recommended way to reference YAML, SQL, configuration and other brace-less files.
 
 ## 8. Diff view and folding (viewer)
 

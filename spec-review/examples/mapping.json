@@ -86,7 +86,8 @@
       "implementation": [
         {
           "file": "src/main/java/auth/EmailValidator.java",
-          "symbol": "isValid"
+          "symbol": "isValid",
+          "lines": "new:10-12"
         },
         {
           "file": "src/main/java/auth/UserService.java",
@@ -123,7 +124,8 @@
       "implementation": [
         {
           "file": "src/main/java/auth/LegacyPasswordHasher.java",
-          "symbol": "hash"
+          "symbol": "hash",
+          "lines": "old:12-19"
         }
       ]
     },
