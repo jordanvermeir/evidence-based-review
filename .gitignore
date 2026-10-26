@@ -3,3 +3,4 @@ __pycache__/
 .DS_Store
 # Generated review pages
 review*.html
+!reviews/pet-clinic/review*.html
