@@ -30,6 +30,19 @@ python3 spec-review/make-review.py mapping.json changes.diff -o out.html  # expl
 
 Then double-click the generated page.
 
+Two viewer styles are available. Both have the same behaviour and differ only in layout and
+styling:
+
+- `template.html` (default): compact, everything in one dense header bar.
+- `template-dossier.html`: more spacious, with a clearer hierarchy. The header has a review
+  track with one segment per linked passage, coloured by review state; click a segment to
+  jump to that passage. The selected passage reads as a dossier: its id as a title, then its
+  tests and implementation, each section with its count.
+
+```bash
+python3 spec-review/make-review.py mapping.json changes.diff --template spec-review/template-dossier.html
+```
+
 ```text
 usage: make-review.py MAPPING DIFF [-o OUT] [--template PATH]
 ```

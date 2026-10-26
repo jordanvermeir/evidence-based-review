@@ -418,7 +418,8 @@ class OutputTests(GeneratorTestCase):
         with open(self.default_out, encoding="utf-8") as fh:
             html = fh.read()
         # Only the template's own script tags close a script element.
-        self.assertEqual(html.count("</script>"), 4)
+        with open(TEMPLATE, encoding="utf-8") as fh:
+            self.assertEqual(html.count("</script>"), fh.read().count("</script>"))
         self.assertEqual(extract_block(html, "mapping-data"), m)
         with open(os.path.join(self.dir, "changes.diff"), encoding="utf-8", newline="") as fh:
             self.assertEqual(extract_block(html, "diff-data"), fh.read())

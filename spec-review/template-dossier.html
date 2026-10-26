@@ -1,0 +1,1380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec review</title>
+<style>
+/* Dossier styling: one passage at a time, with a review track as the header's anchor. */
+:root {
+  --paper: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #1b2230;
+  --ink-2: #4a5568;
+  --ink-3: #7b8597;
+  --rule: #dde1e8;
+  --rule-strong: #c4cad5;
+  --violet: #5a46d6;
+  --violet-soft: rgba(90, 70, 214, 0.09);
+  --violet-tint: rgba(90, 70, 214, 0.16);
+  --violet-sel: rgba(90, 70, 214, 0.26);
+  --ok: #23845a;
+  --ok-soft: #e3f3ea;
+  --warn: #a8650a;
+  --warn-soft: #fbf0dc;
+  --track-empty: #d5d9e1;
+  --add-bg: #e3f7e8;
+  --add-ln: #cdf0d6;
+  --add-fg: #17663a;
+  --del-bg: #fdecec;
+  --del-ln: #f9d6d6;
+  --del-fg: #9b1c24;
+  --hunk-bg: #eef0f7;
+  --fold-bg: #f0f2f5;
+  --mention: rgba(214, 160, 30, 0.32);
+  --serif: Charter, "Bitstream Charter", "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #12151c;
+    --surface: #181c25;
+    --ink: #e7eaf0;
+    --ink-2: #b3bac7;
+    --ink-3: #828b9b;
+    --rule: #2a303c;
+    --rule-strong: #3a4250;
+    --violet: #a596ff;
+    --violet-soft: rgba(165, 150, 255, 0.10);
+    --violet-tint: rgba(165, 150, 255, 0.18);
+    --violet-sel: rgba(165, 150, 255, 0.30);
+    --ok: #4cc38a;
+    --ok-soft: rgba(76, 195, 138, 0.14);
+    --warn: #e0a54a;
+    --warn-soft: rgba(224, 165, 74, 0.14);
+    --track-empty: #343b48;
+    --add-bg: rgba(46, 160, 67, 0.17);
+    --add-ln: rgba(63, 185, 80, 0.28);
+    --add-fg: #7ee2a0;
+    --del-bg: rgba(248, 81, 73, 0.16);
+    --del-ln: rgba(248, 81, 73, 0.28);
+    --del-fg: #ffa3a0;
+    --hunk-bg: rgba(130, 140, 200, 0.12);
+    --fold-bg: #1f2430;
+    --mention: rgba(214, 160, 30, 0.35);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #12151c;
+  --surface: #181c25;
+  --ink: #e7eaf0;
+  --ink-2: #b3bac7;
+  --ink-3: #828b9b;
+  --rule: #2a303c;
+  --rule-strong: #3a4250;
+  --violet: #a596ff;
+  --violet-soft: rgba(165, 150, 255, 0.10);
+  --violet-tint: rgba(165, 150, 255, 0.18);
+  --violet-sel: rgba(165, 150, 255, 0.30);
+  --ok: #4cc38a;
+  --ok-soft: rgba(76, 195, 138, 0.14);
+  --warn: #e0a54a;
+  --warn-soft: rgba(224, 165, 74, 0.14);
+  --track-empty: #343b48;
+  --add-bg: rgba(46, 160, 67, 0.17);
+  --add-ln: rgba(63, 185, 80, 0.28);
+  --add-fg: #7ee2a0;
+  --del-bg: rgba(248, 81, 73, 0.16);
+  --del-ln: rgba(248, 81, 73, 0.28);
+  --del-fg: #ffa3a0;
+  --hunk-bg: rgba(130, 140, 200, 0.12);
+  --fold-bg: #1f2430;
+  --mention: rgba(214, 160, 30, 0.35);
+}
+:root[data-theme="light"] { color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 14px/1.5 var(--sans);
+  display: flex;
+  flex-direction: column;
+}
+button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--ink-3); }
+.theme-toggle { padding: 4px 7px; line-height: 0; }
+.theme-toggle svg { display: block; }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.9em; }
+
+/* ---------- message screens ---------- */
+.message {
+  margin: 15vh auto 0;
+  max-width: 600px;
+  padding: 28px 32px;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+}
+.message.error { border-color: var(--del-fg); }
+.message pre { white-space: pre-wrap; font-family: var(--mono); font-size: 12px; }
+
+/* ---------- header ---------- */
+header.top {
+  flex: none;
+  position: relative;
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+  padding: 16px 28px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 24px;
+  align-items: center;
+}
+.title-block h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1.25;
+  margin: 0;
+}
+.meta { color: var(--ink-3); font-size: 12.5px; margin-top: 2px; }
+.header-right { justify-self: end; display: flex; gap: 8px; align-items: center; align-self: start; }
+.warn-toggle { color: var(--warn); border-color: currentColor; background: var(--warn-soft); }
+.warn-toggle.none { color: var(--ink-3); border-color: var(--rule); background: var(--surface); }
+
+.trackrow {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-top: 4px;
+}
+.track { flex: 1; display: flex; gap: 3px; align-items: center; height: 22px; min-width: 0; }
+.track button {
+  flex: 1 1 0;
+  min-width: 4px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--track-empty);
+  transition: height 120ms ease;
+}
+.track button:hover:not(:disabled) { height: 14px; }
+.track button.st-reviewed { background: var(--ok); }
+.track button.st-attention { background: var(--warn); }
+.track button.current { height: 20px; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--violet); }
+.nav { display: flex; gap: 8px; align-items: center; flex: none; }
+.nav .pos { font-variant-numeric: tabular-nums; color: var(--ink-2); min-width: 5.5em; text-align: center; }
+.summaryrow {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
+}
+.summary { margin: 0; color: var(--ink-2); font-size: 13px; }
+.summary b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary .s-ok { color: var(--ok); }
+.summary .s-warn { color: var(--warn); }
+.disclaimer {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.warn-panel {
+  position: absolute;
+  right: 28px;
+  top: 52px;
+  z-index: 20;
+  width: min(720px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  padding: 6px 0;
+  margin: 0;
+  list-style: none;
+  box-shadow: 0 12px 32px rgba(20, 24, 40, 0.18);
+}
+.warn-panel li { padding: 8px 16px; font-size: 13px; overflow-wrap: anywhere; border-left: 3px solid transparent; }
+.warn-panel li + li { border-top: 1px solid var(--rule); }
+.warn-panel li.clickable { cursor: pointer; }
+.warn-panel li.clickable:hover, .warn-panel li.clickable:focus-visible { background: var(--paper); border-left-color: var(--warn); }
+
+/* ---------- panes ---------- */
+main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+}
+.pane { overflow: auto; min-height: 0; }
+.pane.spec-pane { background: var(--surface); border-right: 1px solid var(--rule); }
+.pane.detail-pane { padding: 28px 32px 48px; }
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  body { display: block; }
+  header.top { grid-template-columns: 1fr; padding: 14px 16px; }
+  .header-right { justify-self: start; }
+  .trackrow { flex-wrap: wrap; }
+  .track { flex-basis: 100%; }
+  main { display: block; }
+  .pane.spec-pane { max-height: 50vh; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .pane.detail-pane { overflow: visible; padding: 20px 16px 40px; }
+  .warn-panel { right: 16px; }
+}
+
+/* ---------- spec (left): unchanged reading layout ---------- */
+.spec { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; padding: 16px 0 32px; }
+.sline { display: grid; grid-template-columns: 1.8em 3.4em minmax(0, 1fr); }
+.sgut { text-align: center; font-weight: 700; user-select: none; }
+.sgut .st-reviewed { color: var(--ok); }
+.sgut .st-attention { color: var(--warn); }
+.sno { text-align: right; padding-right: 12px; color: var(--ink-3); user-select: none; font-variant-numeric: tabular-nums; }
+.stext { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: 16px; min-height: 1.6em; }
+.sline.heading .stext { font-weight: 700; }
+.seg.unlinked { color: var(--ink-3); }
+.seg.linked { background: var(--violet-soft); cursor: pointer; border-radius: 2px; }
+.seg.linked:hover { background: var(--violet-tint); }
+.seg.linked.sel { background: var(--violet-sel); outline: 1px solid var(--violet); }
+.seg.linked + .seg.linked { box-shadow: inset 2px 0 0 var(--violet); }
+
+/* ---------- detail (right): the dossier ---------- */
+.dossier { max-width: 1040px; }
+.d-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 14px;
+}
+.el-id {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1.1;
+  margin: 0;
+  letter-spacing: -0.005em;
+}
+.review { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.review button { border: 0; border-radius: 0; padding: 7px 14px; background: transparent; color: var(--ink-2); }
+.review button + button { border-left: 1px solid var(--rule-strong); }
+.review button:hover { background: var(--paper); }
+.review button[aria-pressed="true"].rv-reviewed { background: var(--ok-soft); color: var(--ok); font-weight: 600; }
+.review button[aria-pressed="true"].rv-attention { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.el-text {
+  margin: 0;
+  padding: 4px 0 4px 18px;
+  border-left: 3px solid var(--violet);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 88ch;
+}
+.gaps { margin: 14px 0 0; color: var(--ink-2); font-size: 13px; }
+.gaps .badge { margin-right: 6px; }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 36px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.section-head h3 { font-family: var(--serif); font-weight: 600; font-size: 19px; margin: 0; }
+.section-head .count { color: var(--ink-3); font-size: 13px; }
+.none-linked { color: var(--ink-3); margin: 4px 0; }
+
+.badge {
+  display: inline-block;
+  font-size: 11.5px;
+  line-height: 20px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink-2);
+  border: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.badge.b-new { color: var(--add-fg); border-color: currentColor; background: transparent; }
+.badge.b-deleted { color: var(--del-fg); border-color: currentColor; background: transparent; }
+.badge.b-limited { color: var(--warn); border-color: currentColor; background: transparent; }
+
+.fileblock { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 16px; }
+.fhead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 8px; padding: 10px 14px 10px 8px; align-items: center; }
+.fileblock:not(.closed) .fhead { border-bottom: 1px solid var(--rule); }
+.chev { grid-row: 1; border: 0; background: none; padding: 2px 6px; font-size: 11px; color: var(--ink-3); }
+.ftitle { grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
+.fsym { font-family: var(--mono); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.ftools { grid-row: 1; grid-column: 3; display: flex; gap: 8px; }
+.fpath { grid-column: 2 / -1; font-family: var(--mono); font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+.fpath .fname { color: var(--ink-2); }
+.fnote { grid-column: 2 / -1; font-size: 12.5px; margin-top: 4px; }
+.fnote.warn { color: var(--warn); }
+.fnote.info { color: var(--ink-3); }
+.fbody { overflow-x: auto; border-radius: 0 0 8px 8px; }
+.fileblock.closed .fbody { display: none; }
+.fmsg { padding: 14px 16px; color: var(--ink-2); font-size: 13px; }
+
+/* ---------- diff: unchanged reading layout ---------- */
+table.diff { border-collapse: collapse; font-family: var(--mono); font-size: 12px; line-height: 20px; min-width: 100%; tab-size: 4; -moz-tab-size: 4; }
+table.diff td { padding: 0; vertical-align: top; }
+td.ln { width: 1%; min-width: 44px; padding: 0 8px; text-align: right; color: var(--ink-3); user-select: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.mk { width: 1%; padding: 0 6px 0 10px; user-select: none; white-space: pre; }
+td.code { white-space: pre; padding-right: 16px; }
+tr.add td { background: var(--add-bg); }
+tr.add td.ln { background: var(--add-ln); }
+tr.add td.mk { color: var(--add-fg); }
+tr.del td { background: var(--del-bg); }
+tr.del td.ln { background: var(--del-ln); }
+tr.del td.mk { color: var(--del-fg); }
+tr.inrange td.ln:first-child { box-shadow: inset 3px 0 0 var(--violet); }
+tr.mention td.code { background-image: linear-gradient(var(--mention), var(--mention)); }
+.nonl { color: var(--del-fg); font-size: 11px; padding-left: 8px; user-select: none; }
+tr.hunk td { background: var(--hunk-bg); color: var(--ink-3); padding: 2px 10px; white-space: pre; }
+tr.fold td, tr.gap td { background: var(--fold-bg); color: var(--ink-2); padding: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.foldbar { position: sticky; left: 0; display: inline-flex; gap: 8px; align-items: center; padding: 5px 12px; font-family: var(--sans); font-size: 12.5px; white-space: nowrap; }
+.foldbar button { padding: 1px 10px; font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) { .track button { transition: none; } }
+</style>
+<script>
+// Apply a saved light/dark choice before first paint; without one the page follows the system.
+try {
+  var savedTheme = localStorage.getItem("spec-review-theme");
+  if (savedTheme === "light" || savedTheme === "dark") document.documentElement.setAttribute("data-theme", savedTheme);
+} catch (e) {}
+</script>
+</head>
+<body>
+<div id="app" style="display:contents"></div>
+<script type="application/json" id="mapping-data">/*MAPPING_JSON*/</script>
+<script type="application/json" id="diff-data">/*CHANGES_DIFF*/</script>
+<script type="application/json" id="meta-data">/*META_JSON*/</script>
+<script>
+"use strict";
+(function () {
+
+  // ======================================================================
+  // DOM helper. Strings become text nodes; nothing is ever parsed as HTML.
+  // ======================================================================
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    if (props) {
+      for (var k in props) {
+        if (!Object.prototype.hasOwnProperty.call(props, k)) continue;
+        var v = props[k];
+        if (v === undefined || v === null || v === false) continue;
+        if (k === "class") el.className = v;
+        else if (k === "text") el.textContent = v;
+        else if (k.slice(0, 2) === "on") el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? "" : v);
+      }
+    }
+    for (var i = 2; i < arguments.length; i++) append(el, arguments[i]);
+    return el;
+  }
+  function append(el, child) {
+    if (child === undefined || child === null || child === false) return;
+    if (Array.isArray(child)) { child.forEach(function (c) { append(el, c); }); return; }
+    el.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
+  }
+  /** Inline text with `code` spans for message strings we compose ourselves. */
+  function withCode(parts) {
+    return parts.map(function (p, i) { return i % 2 ? h("code", { text: p }) : p; });
+  }
+
+  // ======================================================================
+  // Data loading
+  // ======================================================================
+  var NOT_GENERATED = {};
+  function readBlock(id) {
+    var node = document.getElementById(id);
+    var raw = node ? node.textContent : "";
+    // An unreplaced placeholder is a JS-style comment, which no JSON value starts with.
+    if (raw.trim().slice(0, 2) === "/*") return NOT_GENERATED;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      throw new Error("Could not parse #" + id + ": " + e.message);
+    }
+  }
+
+  var app = document.getElementById("app");
+  function showMessage(cls, children) {
+    app.textContent = "";
+    append(app, h("div", { class: "message " + cls }, children));
+  }
+
+  var mapping, diffText, meta;
+  try {
+    mapping = readBlock("mapping-data");
+    diffText = readBlock("diff-data");
+    meta = readBlock("meta-data");
+    if (mapping === NOT_GENERATED || diffText === NOT_GENERATED || meta === NOT_GENERATED) {
+      showMessage("", h("p", null, withCode([
+        "This is the viewer template. Generate a review page with ",
+        "python3 make-review.py mapping.json changes.diff", "."])));
+      return;
+    }
+    if (!mapping || !Array.isArray(mapping.elements) || typeof diffText !== "string") {
+      throw new Error("Embedded data has an unexpected shape.");
+    }
+  } catch (e) {
+    showMessage("error", [h("p", { text: "The review data could not be loaded." }),
+                          h("pre", { text: String(e && e.message || e) })]);
+    return;
+  }
+
+  // ======================================================================
+  // Diff parser → files with unified rows
+  // ======================================================================
+  var HUNK_RE = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/;
+  var ESC = { a: "\x07", b: "\b", f: "\f", n: "\n", r: "\r", t: "\t", v: "\v", '"': '"', "\\": "\\" };
+
+  function unquotePath(raw) {
+    raw = raw.trim();
+    if (!(raw.length >= 2 && raw[0] === '"' && raw[raw.length - 1] === '"')) return raw;
+    var body = raw.slice(1, -1), bytes = [], i = 0;
+    var enc = new TextEncoder();
+    while (i < body.length) {
+      var c = body[i];
+      if (c === "\\" && i + 1 < body.length) {
+        var oct = /^[0-7]{3}/.exec(body.slice(i + 1, i + 4));
+        if (oct) { bytes.push(parseInt(oct[0], 8)); i += 4; continue; }
+        var n = body[i + 1];
+        Array.prototype.push.apply(bytes, enc.encode(ESC[n] !== undefined ? ESC[n] : n));
+        i += 2; continue;
+      }
+      Array.prototype.push.apply(bytes, enc.encode(c));
+      i++;
+    }
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  }
+  function stripPrefix(p, prefix) {
+    if (p === "/dev/null") return null;
+    return p.slice(0, prefix.length) === prefix ? p.slice(prefix.length) : p;
+  }
+  function splitGitHeader(rest) {
+    rest = rest.trim();
+    var m;
+    if (rest[0] === '"' && (m = /^("(?:[^"\\]|\\.)*")\s+(.*)$/.exec(rest))) {
+      return [stripPrefix(unquotePath(m[1]), "a/"), stripPrefix(unquotePath(m[2]), "b/")];
+    }
+    if (rest[rest.length - 1] === '"' && (m = /^(.*?)\s+("(?:[^"\\]|\\.)*")$/.exec(rest))) {
+      return [stripPrefix(m[1], "a/"), stripPrefix(unquotePath(m[2]), "b/")];
+    }
+    var half = (rest.length - 1) >> 1;
+    if (rest.length % 2 === 1 && rest[half] === " " &&
+        rest.slice(2, half) === rest.slice(half + 3)) {
+      return [stripPrefix(rest.slice(0, half), "a/"), stripPrefix(rest.slice(half + 1), "b/")];
+    }
+    var idx = rest.indexOf(" b/");
+    if (idx > 0) return [stripPrefix(rest.slice(0, idx), "a/"), stripPrefix(rest.slice(idx + 1), "b/")];
+    return [rest, rest];
+  }
+
+  function parseDiff(text) {
+    var files = [];
+    var lines = text.split("\n");
+    if (lines.length && lines[lines.length - 1] === "") lines.pop();
+    var i = 0, n = lines.length;
+    while (i < n) {
+      var line = lines[i].replace(/\r$/, "");
+      if (line.slice(0, 11) !== "diff --git ") { i++; continue; }
+      var paths = splitGitHeader(line.slice(11));
+      var f = {
+        oldPath: paths[0], newPath: paths[1], path: null,
+        isNew: false, isDeleted: false, isRenamed: false, isBinary: false,
+        hunks: [], rows: [], complete: true
+      };
+      files.push(f);
+      i++;
+      while (i < n) {
+        line = lines[i].replace(/\r$/, "");
+        if (line.slice(0, 11) === "diff --git ") break;
+        var m = HUNK_RE.exec(line);
+        if (m) {
+          var hunk = {
+            header: line,
+            heading: m[5],
+            oldStart: +m[1], oldCount: m[2] === undefined ? 1 : +m[2],
+            newStart: +m[3], newCount: m[4] === undefined ? 1 : +m[4],
+            start: f.rows.length, end: f.rows.length
+          };
+          f.hunks.push(hunk);
+          var oldLeft = hunk.oldCount, newLeft = hunk.newCount;
+          var oldNo = hunk.oldStart, newNo = hunk.newStart;
+          i++;
+          while (i < n && (oldLeft > 0 || newLeft > 0 || lines[i][0] === "\\")) {
+            var row = lines[i], tag = row[0];
+            if (tag === "\\") {
+              if (f.rows.length > hunk.start) f.rows[f.rows.length - 1].noNewline = true;
+            } else if (tag === "+") {
+              f.rows.push({ type: "add", oldNo: null, newNo: newNo++, text: row.slice(1), hunk: f.hunks.length - 1 });
+              newLeft--;
+            } else if (tag === "-") {
+              f.rows.push({ type: "del", oldNo: oldNo++, newNo: null, text: row.slice(1), hunk: f.hunks.length - 1 });
+              oldLeft--;
+            } else if (tag === " " || row === "") {
+              f.rows.push({ type: "context", oldNo: oldNo++, newNo: newNo++, text: row.slice(1), hunk: f.hunks.length - 1 });
+              oldLeft--; newLeft--;
+            } else {
+              break;
+            }
+            i++;
+          }
+          hunk.end = f.rows.length;
+          continue;
+        }
+        if (line.indexOf("new file mode") === 0) f.isNew = true;
+        else if (line.indexOf("deleted file mode") === 0) f.isDeleted = true;
+        else if (line.indexOf("rename from ") === 0) { f.oldPath = unquotePath(line.slice(12)); f.isRenamed = true; }
+        else if (line.indexOf("rename to ") === 0) { f.newPath = unquotePath(line.slice(10)); f.isRenamed = true; }
+        else if (line.indexOf("--- ") === 0) {
+          var a = stripPrefix(unquotePath(line.slice(4).split("\t")[0]), "a/");
+          if (a === null) f.isNew = true; else f.oldPath = a;
+        } else if (line.indexOf("+++ ") === 0) {
+          var b = stripPrefix(unquotePath(line.slice(4).split("\t")[0]), "b/");
+          if (b === null) f.isDeleted = true; else f.newPath = b;
+        } else if (line.indexOf("Binary files ") === 0 || line === "GIT binary patch") {
+          f.isBinary = true;
+        }
+        i++;
+      }
+    }
+    files.forEach(function (f) {
+      f.path = f.isDeleted ? f.oldPath : f.newPath;
+      f.complete = isComplete(f);
+    });
+    return files;
+  }
+
+  function isComplete(f) {
+    if (f.isNew || f.isDeleted || f.isBinary || !f.hunks.length) return true;
+    if (f.hunks.length !== 1) return false;
+    var hk = f.hunks[0];
+    return hk.oldStart === (hk.oldCount === 0 ? 0 : 1) && hk.newStart === (hk.newCount === 0 ? 0 : 1);
+  }
+
+  // ======================================================================
+  // Symbol location (§7)
+  // ======================================================================
+  function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\\/-]/g, "\\$&"); }
+  function symbolRe(symbol, flags) {
+    return new RegExp("(?<![\\w$])" + escapeRe(symbol) + "(?![\\w$])", flags || "");
+  }
+
+  /**
+   * Blank out (with spaces, keeping columns) everything that is not code:
+   * strings, chars, text blocks, line and block comments. State carries across lines.
+   */
+  function codeOnly(texts) {
+    var state = 0; // 0 code, 1 block comment, 2 text block
+    return texts.map(function (t) {
+      var out = [], i = 0, n = t.length;
+      while (i < n) {
+        var c = t[i];
+        if (state === 1) {
+          if (c === "*" && t[i + 1] === "/") { out.push("  "); i += 2; state = 0; } else { out.push(" "); i++; }
+          continue;
+        }
+        if (state === 2) {
+          if (c === "\\") { out.push("  "); i += 2; continue; }
+          if (t.substr(i, 3) === '"""') { out.push("   "); i += 3; state = 0; } else { out.push(" "); i++; }
+          continue;
+        }
+        if (c === "/" && t[i + 1] === "/") { out.push(" ".repeat(n - i)); break; }
+        if (c === "/" && t[i + 1] === "*") { out.push("  "); i += 2; state = 1; continue; }
+        if (t.substr(i, 3) === '"""') { out.push("   "); i += 3; state = 2; continue; }
+        if (c === '"' || c === "'") {
+          out.push(" "); i++;
+          while (i < n && t[i] !== c) {
+            if (t[i] === "\\") { out.push(" "); i++; }
+            if (i < n) { out.push(" "); i++; }
+          }
+          if (i < n) { out.push(" "); i++; }
+          continue;
+        }
+        out.push(c); i++;
+      }
+      var s = out.join("");
+      return s.length > n ? s.slice(0, n) : s;
+    });
+  }
+
+  var NOT_DECL_BEFORE = /(?:^|[^\w$])(?:new|return|throw|else|case|await|yield|typeof|in|of|do)\s*$/;
+  var TYPE_DECL_BEFORE = /(?:(?:^|[^\w$@])(?:class|interface|enum|record)|@interface)\s+$/;
+
+  function looksLikeDeclaration(code, start, end) {
+    var before = code.slice(0, start), after = code.slice(end);
+    if (TYPE_DECL_BEFORE.test(before)) return true;
+    if (!/^\s*\(/.test(after)) return false;
+    if (NOT_DECL_BEFORE.test(before)) return false;
+    var prev = before.replace(/\s+$/, "");
+    if (prev === "") return true;
+    return /[\w$>\])]/.test(prev[prev.length - 1]);
+  }
+
+  var LEADING_DECOR = /^\s*(?:@|\/\/|\/\*|\*)/;
+
+  /** Returns { mode: "decl", ranges, side } or { mode: "fallback", mentions, found }. */
+  function locateSymbol(file, symbol) {
+    var re = symbolRe(symbol);
+    var reG = symbolRe(symbol, "g");
+    var mentions = new Set();
+    file.rows.forEach(function (r, idx) { if (re.test(r.text)) mentions.add(idx); });
+    var inHeading = file.hunks.some(function (hk) { return re.test(hk.heading); });
+
+    var sides = [["context", "add"], ["context", "del"]];
+    for (var s = 0; s < sides.length; s++) {
+      var keep = sides[s], ranges = [];
+      file.hunks.forEach(function (hk) {
+        var idxs = [];
+        for (var u = hk.start; u < hk.end; u++) if (keep.indexOf(file.rows[u].type) >= 0) idxs.push(u);
+        if (!idxs.length) return;
+        var texts = idxs.map(function (u) { return file.rows[u].text; });
+        var codes = codeOnly(texts);
+        for (var k = 0; k < idxs.length; k++) {
+          if (!mentions.has(idxs[k])) continue;
+          reG.lastIndex = 0;
+          var m;
+          while ((m = reG.exec(codes[k]))) {
+            if (!looksLikeDeclaration(codes[k], m.index, m.index + m[0].length)) continue;
+            var range = declarationRange(texts, codes, k, m.index + m[0].length);
+            if (range) ranges.push([idxs[range[0]], idxs[range[1]]]);
+          }
+        }
+      });
+      if (ranges.length) return { mode: "decl", ranges: mergeRanges(ranges), side: s === 0 ? "new" : "old" };
+    }
+    return { mode: "fallback", mentions: mentions, found: mentions.size > 0 || inHeading };
+  }
+
+  /** From a declaration at codes[k] (symbol ending at col), find [startK, endK] or null. */
+  function declarationRange(texts, codes, k, col) {
+    // Forward to the first "{" or ";".
+    var bk = -1, bc = -1;
+    outer:
+    for (var r = k, c = col; r < codes.length; r++, c = 0) {
+      for (; c < codes[r].length; c++) {
+        var ch = codes[r][c];
+        if (ch === ";") return null;
+        if (ch === "{") { bk = r; bc = c; break outer; }
+      }
+    }
+    if (bk < 0) return null;
+    // Match braces.
+    var depth = 0, endK = codes.length - 1;
+    match:
+    for (r = bk, c = bc; r < codes.length; r++, c = 0) {
+      for (; c < codes[r].length; c++) {
+        ch = codes[r][c];
+        if (ch === "{") depth++;
+        else if (ch === "}" && --depth === 0) { endK = r; break match; }
+      }
+    }
+    // Back over annotations and comments directly above.
+    var startK = k;
+    while (startK > 0 && LEADING_DECOR.test(texts[startK - 1])) startK--;
+    return [startK, endK];
+  }
+
+  // ======================================================================
+  // Explicit line ranges from the mapping ("new:10-20,40")
+  // ======================================================================
+  var LINES_RE = /^(old|new):(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)$/;
+
+  /** { side, ranges: [[lo, hi], ...], label } or null when malformed (the generator rejects those). */
+  function parseLines(value) {
+    var m = typeof value === "string" ? LINES_RE.exec(value.replace(/ /g, "")) : null;
+    if (!m) return null;
+    var ranges = m[2].split(",").map(function (part) {
+      var bits = part.split("-"), lo = +bits[0], hi = bits.length > 1 ? +bits[1] : lo;
+      return [lo, hi];
+    });
+    if (ranges.some(function (r) { return r[0] < 1 || r[1] < r[0]; })) return null;
+    var label = m[1] + ":" + ranges.map(function (r) { return r[0] === r[1] ? r[0] : r[0] + "-" + r[1]; }).join(",");
+    return { side: m[1], ranges: ranges, label: label };
+  }
+
+  /**
+   * Resolve parsed lines against a file: { ok, problem, ranges (unified row index pairs) }.
+   * problem is "missing" (some lines are not in the diff) or "symbol" (symbol not in those lines).
+   */
+  function resolveLines(file, spec, symbol) {
+    var keep = spec.side === "new" ? ["context", "add"] : ["context", "del"];
+    var noKey = spec.side === "new" ? "newNo" : "oldNo";
+    var byNo = new Map();
+    file.rows.forEach(function (r, u) { if (keep.indexOf(r.type) >= 0) byNo.set(r[noKey], u); });
+    var re = symbolRe(symbol), found = false, out = [];
+    for (var k = 0; k < spec.ranges.length; k++) {
+      var lo = spec.ranges[k][0], hi = spec.ranges[k][1], seg = null;
+      for (var no = lo; no <= hi; no++) {
+        if (!byNo.has(no)) return { ok: false, problem: "missing" };
+        var u = byNo.get(no);
+        if (re.test(file.rows[u].text)) found = true;
+        // A new segment starts at a hunk boundary; within a hunk the unified span
+        // also covers interleaved rows of the other side.
+        if (seg && file.rows[seg[1]].hunk === file.rows[u].hunk) seg[1] = u;
+        else { seg = [u, u]; out.push(seg); }
+      }
+    }
+    if (!found) return { ok: false, problem: "symbol" };
+    return { ok: true, ranges: mergeRanges(out) };
+  }
+
+  function mergeRanges(ranges) {
+    ranges.sort(function (a, b) { return a[0] - b[0]; });
+    var out = [];
+    ranges.forEach(function (r) {
+      var last = out[out.length - 1];
+      if (last && r[0] <= last[1] + 1) last[1] = Math.max(last[1], r[1]);
+      else out.push([r[0], r[1]]);
+    });
+    return out;
+  }
+
+  // ======================================================================
+  // Folding model (§8)
+  // ======================================================================
+  var STEP = 20, MIN_FOLD = 3, NEW_FILE_LIMIT = 400, FALLBACK_CONTEXT = 3;
+
+  function initialVisibility(file, loc) {
+    var vis = new Uint8Array(file.rows.length);
+    if (loc.mode !== "fallback") {
+      loc.ranges.forEach(function (r) { for (var i = r[0]; i <= r[1]; i++) vis[i] = 1; });
+    } else if (file.isNew || file.isDeleted) {
+      for (var i = 0; i < Math.min(NEW_FILE_LIMIT, vis.length); i++) vis[i] = 1;
+    } else {
+      file.hunks.forEach(function (hk) {
+        for (var u = hk.start; u < hk.end; u++) {
+          if (file.rows[u].type === "context") continue;
+          var lo = Math.max(hk.start, u - FALLBACK_CONTEXT), hi = Math.min(hk.end - 1, u + FALLBACK_CONTEXT);
+          for (var j = lo; j <= hi; j++) vis[j] = 1;
+        }
+      });
+    }
+    normalize(file, vis);
+    return vis;
+  }
+
+  /** Hidden stretches of MIN_FOLD rows or fewer are just shown. */
+  function normalize(file, vis) {
+    hiddenRuns(file, vis).forEach(function (run) {
+      if (run[1] - run[0] <= MIN_FOLD) for (var i = run[0]; i < run[1]; i++) vis[i] = 1;
+    });
+  }
+
+  /** [start, end) runs of hidden rows, never crossing a hunk boundary. */
+  function hiddenRuns(file, vis) {
+    var runs = [];
+    file.hunks.forEach(function (hk) {
+      var s = -1;
+      for (var u = hk.start; u <= hk.end; u++) {
+        var hidden = u < hk.end && !vis[u];
+        if (hidden && s < 0) s = u;
+        if (!hidden && s >= 0) { runs.push([s, u]); s = -1; }
+      }
+    });
+    return runs;
+  }
+
+  // ======================================================================
+  // Model
+  // ======================================================================
+  var files = parseDiff(diffText);
+  var fileByPath = new Map();
+  files.forEach(function (f) { if (!fileByPath.has(f.path)) fileByPath.set(f.path, f); });
+
+  var elements = mapping.elements;
+  var KINDS = ["tests", "implementation"];
+  var linked = [];
+  elements.forEach(function (el, i) {
+    el._index = i;
+    el._linked = el.tests.length > 0 || el.implementation.length > 0;
+    if (el._linked) linked.push(i);
+  });
+  var review = new Map(); // element index → "reviewed" | "attention"
+  var entries = new Map(); // "el:kind:ref" → per-reference view state
+
+  var locCache = new Map();
+  function locate(file, symbol) {
+    var key = file.path + "\u0000" + symbol;
+    if (!locCache.has(key)) locCache.set(key, locateSymbol(file, symbol));
+    return locCache.get(key);
+  }
+
+  // Warnings, worded like the generator's.
+  var warnings = [];
+  elements.forEach(function (el, i) {
+    KINDS.forEach(function (kind) {
+      el[kind].forEach(function (ref, j) {
+        var where = "elements[" + i + "] (" + el.id + ") " + kind + "[" + j + "]: ";
+        var file = fileByPath.get(ref.file);
+        var spec = ref.lines !== undefined ? parseLines(ref.lines) : null;
+        if (!file) {
+          warnings.push({ el: i, text: where + "file " + ref.file + " not in diff" });
+        } else if (spec) {
+          var res = resolveLines(file, spec, ref.symbol);
+          if (res.problem === "missing") {
+            warnings.push({ el: i, text: where + "lines " + spec.label + " not in the diff of " + ref.file });
+          } else if (res.problem === "symbol") {
+            warnings.push({ el: i, text: where + 'symbol "' + ref.symbol + '" not found in lines ' +
+              spec.label + " of " + ref.file });
+          }
+        } else if (!symbolFound(file, ref.symbol)) {
+          warnings.push({ el: i, text: where + 'symbol "' + ref.symbol + '" not found in ' + ref.file });
+        }
+      });
+    });
+  });
+  var partialFiles = files.filter(function (f) { return !f.complete; });
+  if (partialFiles.length) {
+    warnings.push({ el: null, text: "diff has limited context for " + partialFiles.length +
+      " file(s) (e.g. " + partialFiles[0].path + "); use -U99999 for expandable files" });
+  }
+  if (!linked.length) warnings.push({ el: null, text: "no linked elements" });
+
+  function symbolFound(file, symbol) {
+    var re = symbolRe(symbol);
+    return file.rows.some(function (r) { return re.test(r.text); }) ||
+      file.hunks.some(function (hk) { return re.test(hk.heading); });
+  }
+
+  var selected = linked.length ? linked[0] : null;
+
+  // ======================================================================
+  // Layout
+  // ======================================================================
+  var title = typeof mapping.title === "string" && mapping.title ? mapping.title : "Spec review";
+  document.title = title + " · Spec review";
+
+  var posLabel = h("span", { class: "pos" });
+  var prevBtn = h("button", { type: "button", "aria-label": "Previous passage", onclick: function () { step(-1); } }, "‹ Previous");
+  var nextBtn = h("button", { type: "button", "aria-label": "Next passage", onclick: function () { step(1); } }, "Next ›");
+  var countsEl = h("p", { class: "summary", "aria-live": "polite" });
+  // One segment per linked passage, in spec order: review state at a glance, click to jump.
+  var track = h("div", { class: "track", role: "group", "aria-label": "Linked passages" });
+  var trackBtns = linked.map(function (i) {
+    var b = h("button", { type: "button", onclick: function () { select(i); } });
+    track.appendChild(b);
+    return b;
+  });
+  // Light/dark switch. Without a saved choice the page follows the system; choosing the
+  // system's own theme clears the override again.
+  var THEME_KEY = "spec-review-theme";
+  var rootEl = document.documentElement;
+  var darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs) {
+    var e = document.createElementNS(SVG_NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function themeIcon(name) {
+    var s = svgEl("svg", { viewBox: "0 0 16 16", width: "16", height: "16", "aria-hidden": "true",
+      fill: "none", stroke: "currentColor", "stroke-width": "1.5", "stroke-linecap": "round", "stroke-linejoin": "round" });
+    if (name === "sun") {
+      s.appendChild(svgEl("circle", { cx: "8", cy: "8", r: "3" }));
+      for (var k = 0; k < 8; k++) {
+        var a = k * Math.PI / 4, c = Math.cos(a), d = Math.sin(a);
+        s.appendChild(svgEl("line", { x1: (8 + 5.2 * c).toFixed(2), y1: (8 + 5.2 * d).toFixed(2),
+          x2: (8 + 6.8 * c).toFixed(2), y2: (8 + 6.8 * d).toFixed(2) }));
+      }
+    } else {
+      s.appendChild(svgEl("path", { d: "M13.6 10.1A6 6 0 0 1 5.9 2.4a6 6 0 1 0 7.7 7.7z" }));
+    }
+    return s;
+  }
+  function systemTheme() { return darkQuery.matches ? "dark" : "light"; }
+  function currentTheme() { return rootEl.getAttribute("data-theme") || systemTheme(); }
+  var themeBtn = h("button", { type: "button", class: "theme-toggle" });
+  function renderThemeBtn() {
+    var dark = currentTheme() === "dark";
+    themeBtn.textContent = "";
+    themeBtn.appendChild(themeIcon(dark ? "sun" : "moon"));
+    themeBtn.title = dark ? "Switch to light mode" : "Switch to dark mode";
+    themeBtn.setAttribute("aria-label", themeBtn.title);
+  }
+  themeBtn.addEventListener("click", function () {
+    var next = currentTheme() === "dark" ? "light" : "dark";
+    try {
+      if (next === systemTheme()) localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, next);
+    } catch (e) { /* storage unavailable: the switch still works for this visit */ }
+    if (next === systemTheme()) rootEl.removeAttribute("data-theme"); else rootEl.setAttribute("data-theme", next);
+    renderThemeBtn();
+  });
+  if (darkQuery.addEventListener) darkQuery.addEventListener("change", renderThemeBtn);
+  renderThemeBtn();
+
+  var warnPanel = h("ul", { class: "warn-panel", hidden: true });
+  var warnBtn = h("button", {
+    type: "button",
+    class: "warn-toggle" + (warnings.length ? "" : " none"),
+    "aria-expanded": "false",
+    disabled: !warnings.length,
+    onclick: function () { toggleWarnings(); }
+  }, warnings.length ? "⚠ " + warnings.length + (warnings.length === 1 ? " warning" : " warnings") : "No warnings");
+
+  warnings.forEach(function (w) {
+    var li = h("li", { text: w.text });
+    if (w.el !== null) {
+      li.className = "clickable";
+      li.tabIndex = 0;
+      var go = function () { toggleWarnings(false); select(w.el); };
+      li.addEventListener("click", go);
+      li.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+      });
+    }
+    warnPanel.appendChild(li);
+  });
+
+  var metaText = [];
+  if (meta && meta.generatedAt) metaText.push("Generated " + formatDate(meta.generatedAt));
+  if (meta && (meta.mappingFile || meta.diffFile)) {
+    metaText.push("from " + [meta.mappingFile, meta.diffFile].filter(Boolean).join(" and "));
+  }
+
+  var header = h("header", { class: "top" },
+    h("div", { class: "title-block" },
+      h("h1", { text: title }),
+      h("div", { class: "meta", text: metaText.join(" ") })),
+    h("div", { class: "header-right" }, warnBtn, themeBtn),
+    h("div", { class: "trackrow" }, track, h("div", { class: "nav" }, prevBtn, posLabel, nextBtn)),
+    h("div", { class: "summaryrow" }, countsEl,
+      h("p", { class: "disclaimer", text:
+        "Links show where related changes are. They do not prove a requirement is correctly implemented or fully tested." })),
+    warnPanel);
+
+  var specPane = h("section", { class: "pane spec-pane", "aria-label": "Specification" });
+  var detailPane = h("section", { class: "pane detail-pane", "aria-label": "Selected passage" });
+  app.textContent = "";
+  append(app, [header, h("main", null, specPane, detailPane)]);
+
+  document.addEventListener("click", function (e) {
+    if (!warnPanel.hidden && !warnPanel.contains(e.target) && e.target !== warnBtn) toggleWarnings(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !warnPanel.hidden) { toggleWarnings(false); warnBtn.focus(); }
+  });
+
+  function toggleWarnings(force) {
+    var show = force === undefined ? warnPanel.hidden : force;
+    warnPanel.hidden = !show;
+    warnBtn.setAttribute("aria-expanded", String(show));
+  }
+
+  function formatDate(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleString();
+  }
+
+  // ======================================================================
+  // Spec pane (raw text, inline element spans)
+  // ======================================================================
+  var segsByEl = elements.map(function () { return []; });
+  var markerByEl = new Map();
+
+  (function renderSpec() {
+    // Split the concatenated text into lines of [elementIndex, text] segments.
+    var lines = [[]];
+    elements.forEach(function (el, i) {
+      el.text.split("\n").forEach(function (piece, p) {
+        if (p > 0) lines.push([]);
+        if (piece) lines[lines.length - 1].push([i, piece]);
+      });
+    });
+    if (lines.length > 1 && lines[lines.length - 1].length === 0) lines.pop();
+
+    var spec = h("div", { class: "spec" });
+    var fence = null, started = new Set();
+    lines.forEach(function (segs, ln) {
+      var text = segs.map(function (s) { return s[1]; }).join("");
+      var heading = false;
+      var fm = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(text);
+      if (fence) {
+        if (fm && fm[1][0] === fence[0] && fm[1].length >= fence.length && /^\s*$/.test(fm[2])) fence = null;
+      } else if (fm && !(fm[1][0] === "`" && fm[2].indexOf("`") >= 0)) {
+        fence = fm[1];
+      } else if (text[0] === "#") {
+        heading = true;
+      }
+
+      var gut = h("span", { class: "sgut", "aria-hidden": "true" });
+      var body = h("span", { class: "stext" });
+      segs.forEach(function (s) {
+        var el = elements[s[0]];
+        var span = h("span", { class: "seg " + (el._linked ? "linked" : "unlinked"), text: s[1] });
+        if (el._linked) {
+          span.addEventListener("click", function () { select(el._index); });
+          if (!started.has(el._index)) {
+            span.tabIndex = 0;
+            span.setAttribute("role", "button");
+            span.setAttribute("aria-label", "Select " + el.id);
+            span.addEventListener("keydown", function (e) {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(el._index); }
+            });
+            var mk = h("span");
+            gut.appendChild(mk);
+            markerByEl.set(el._index, mk);
+          }
+        }
+        started.add(el._index);
+        segsByEl[s[0]].push(span);
+        body.appendChild(span);
+      });
+      spec.appendChild(h("div", { class: "sline" + (heading ? " heading" : "") },
+        gut, h("span", { class: "sno", text: String(ln + 1) }), body));
+    });
+    specPane.appendChild(spec);
+  })();
+
+  // ======================================================================
+  // Selection, navigation, counts, review state
+  // ======================================================================
+  function select(i) {
+    if (i === null || !elements[i] || !elements[i]._linked) return;
+    if (selected !== null) segsByEl[selected].forEach(function (s) { s.classList.remove("sel"); });
+    selected = i;
+    segsByEl[i].forEach(function (s) { s.classList.add("sel"); });
+    var first = segsByEl[i][0];
+    if (first) scrollIntoPane(first, specPane);
+    renderHeaderState();
+    renderDetail();
+    detailPane.scrollTop = 0;
+  }
+
+  function scrollIntoPane(node, pane) {
+    var pr = pane.getBoundingClientRect(), nr = node.getBoundingClientRect();
+    if (pane.scrollHeight > pane.clientHeight + 1) {
+      if (nr.top < pr.top || nr.bottom > pr.bottom) {
+        pane.scrollTop += nr.top - pr.top - pane.clientHeight / 3;
+      }
+    } else if (nr.top < 0 || nr.bottom > window.innerHeight) {
+      node.scrollIntoView({ block: "center" });
+    }
+  }
+
+  function step(delta) {
+    if (!linked.length) return;
+    var pos = linked.indexOf(selected);
+    var next = Math.min(linked.length - 1, Math.max(0, pos + delta));
+    if (next !== pos) select(linked[next]);
+  }
+
+  function renderHeaderState() {
+    var pos = linked.indexOf(selected);
+    posLabel.textContent = (pos + 1) + " of " + linked.length;
+    prevBtn.disabled = pos <= 0;
+    nextBtn.disabled = pos < 0 || pos >= linked.length - 1;
+
+    var noTests = 0, noImpl = 0, nReviewed = 0, nAttention = 0;
+    linked.forEach(function (i) {
+      if (!elements[i].tests.length) noTests++;
+      if (!elements[i].implementation.length) noImpl++;
+      var st = review.get(i);
+      if (st === "reviewed") nReviewed++;
+      if (st === "attention") nAttention++;
+    });
+    countsEl.textContent = "";
+    append(countsEl, [
+      h("b", { text: String(linked.length) }), linked.length === 1 ? " linked passage: " : " linked passages: ",
+      h("b", { text: String(noTests) }), " without tests, ",
+      h("b", { text: String(noImpl) }), " without implementation. ",
+      h("b", { class: nReviewed ? "s-ok" : "", text: String(nReviewed) }), " reviewed, ",
+      h("b", { class: nAttention ? "s-warn" : "", text: String(nAttention) }),
+      nAttention === 1 ? " needs attention." : " need attention."
+    ]);
+
+    trackBtns.forEach(function (b, k) {
+      var i = linked[k], st = review.get(i);
+      b.className = (st ? "st-" + st : "") + (i === selected ? " current" : "");
+      b.title = elements[i].id + (st === "reviewed" ? ", reviewed" : st === "attention" ? ", needs attention" : "");
+      b.setAttribute("aria-label", b.title);
+      if (i === selected) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current");
+    });
+
+    markerByEl.forEach(function (mk, i) {
+      var st = review.get(i);
+      mk.className = st === "reviewed" ? "st-reviewed" : st === "attention" ? "st-attention" : "";
+      mk.textContent = st === "reviewed" ? "✓" : st === "attention" ? "!" : "";
+      mk.title = st === "reviewed" ? "Reviewed" : st === "attention" ? "Needs attention" : "";
+    });
+  }
+
+  function setReview(i, state) {
+    if (review.get(i) === state) review.delete(i); else review.set(i, state);
+    renderHeaderState();
+    renderDetail();
+  }
+
+  // ======================================================================
+  // Detail pane
+  // ======================================================================
+  function renderDetail() {
+    detailPane.textContent = "";
+    if (selected === null) {
+      detailPane.appendChild(h("p", { class: "none-linked", text: "No linked passages in this mapping." }));
+      return;
+    }
+    var el = elements[selected];
+    var st = review.get(selected);
+    var reviewedBtn = h("button", {
+      type: "button", class: "rv-reviewed", "aria-pressed": String(st === "reviewed"),
+      onclick: function () { setReview(el._index, "reviewed"); }
+    }, "✓ Reviewed");
+    var attentionBtn = h("button", {
+      type: "button", class: "rv-attention", "aria-pressed": String(st === "attention"),
+      onclick: function () { setReview(el._index, "attention"); }
+    }, "! Needs attention");
+
+    var dossier = h("article", { class: "dossier" });
+    detailPane.appendChild(dossier);
+    append(dossier, [
+      h("div", { class: "d-head" },
+        h("h2", { class: "el-id", text: el.id }),
+        h("div", { class: "review", role: "group", "aria-label": "Review status" }, reviewedBtn, attentionBtn)),
+      h("pre", { class: "el-text", text: el.text })
+    ]);
+    var badges = [];
+    if (!el.tests.length) badges.push(h("span", { class: "badge", text: "no tests linked" }));
+    if (!el.implementation.length) badges.push(h("span", { class: "badge", text: "no implementation linked" }));
+    if (badges.length) dossier.appendChild(h("p", { class: "gaps" }, badges));
+
+    KINDS.forEach(function (kind) {
+      var n = el[kind].length;
+      dossier.appendChild(h("div", { class: "section-head" },
+        h("h3", { text: kind === "tests" ? "Tests" : "Implementation" }),
+        h("span", { class: "count", text: n ? n + " linked" : "" })));
+      if (!n) {
+        dossier.appendChild(h("p", { class: "none-linked", text: "None linked." }));
+        return;
+      }
+      el[kind].forEach(function (ref, j) {
+        dossier.appendChild(renderReference(el, kind, j, ref));
+      });
+    });
+  }
+
+  function getEntry(el, kind, j, ref) {
+    var key = el._index + ":" + kind + ":" + j;
+    var entry = entries.get(key);
+    if (!entry) {
+      var file = fileByPath.get(ref.file) || null;
+      entry = { file: file, open: true };
+      if (file && file.rows.length) {
+        // Explicit lines win; when they can't be used, fall back to locating the symbol.
+        var spec = ref.lines !== undefined ? parseLines(ref.lines) : null;
+        var res = spec ? resolveLines(file, spec, ref.symbol) : null;
+        if (res && res.ok) {
+          entry.loc = { mode: "lines", ranges: res.ranges, label: spec.label };
+        } else {
+          entry.loc = locate(file, ref.symbol);
+          if (res) entry.linesProblem = { problem: res.problem, label: spec.label };
+        }
+        entry.initial = initialVisibility(file, entry.loc);
+        entry.vis = entry.initial.slice();
+        entry.inRange = new Uint8Array(file.rows.length);
+        if (entry.loc.mode !== "fallback") {
+          entry.loc.ranges.forEach(function (r) { for (var i = r[0]; i <= r[1]; i++) entry.inRange[i] = 1; });
+        }
+      }
+      entries.set(key, entry);
+    }
+    return entry;
+  }
+
+  function renderReference(el, kind, j, ref) {
+    var entry = getEntry(el, kind, j, ref);
+    var file = entry.file;
+    var block = h("div", { class: "fileblock" + (entry.open ? "" : " closed") });
+    var chev = h("button", {
+      type: "button", class: "chev", "aria-expanded": String(entry.open),
+      "aria-label": "Toggle file", text: entry.open ? "▼" : "▶"
+    });
+    chev.addEventListener("click", function () {
+      entry.open = !entry.open;
+      block.classList.toggle("closed", !entry.open);
+      chev.textContent = entry.open ? "▼" : "▶";
+      chev.setAttribute("aria-expanded", String(entry.open));
+    });
+
+    // Symbol first, path second; within the path the file name stands out from its directory.
+    var slash = ref.file.lastIndexOf("/");
+    var titleRow = h("div", { class: "ftitle" }, h("span", { class: "fsym", text: ref.symbol }));
+    var tools = h("div", { class: "ftools" });
+    var head = h("div", { class: "fhead" }, chev, titleRow, tools,
+      h("div", { class: "fpath" },
+        ref.file.slice(0, slash + 1),
+        h("span", { class: "fname", text: ref.file.slice(slash + 1) })));
+    block.appendChild(head);
+    var body = h("div", { class: "fbody" });
+    block.appendChild(body);
+
+    if (!file) {
+      body.appendChild(h("div", { class: "fmsg" }, withCode(["", ref.file,
+        " is not in the diff. It may be unchanged in this change set."])));
+      return block;
+    }
+
+    if (file.isNew) titleRow.appendChild(h("span", { class: "badge b-new", text: "new file" }));
+    if (file.isDeleted) titleRow.appendChild(h("span", { class: "badge b-deleted", text: "deleted file" }));
+    if (file.isRenamed) titleRow.appendChild(h("span", { class: "badge", text: "renamed", title: "from " + file.oldPath }));
+    if (!file.complete) titleRow.appendChild(h("span", { class: "badge b-limited", text: "limited context" }));
+    if (file.isBinary) titleRow.appendChild(h("span", { class: "badge", text: "binary" }));
+
+    if (!file.rows.length) {
+      body.appendChild(h("div", { class: "fmsg", text: file.isBinary
+        ? "Binary file, no preview."
+        : "No content changes (rename or mode change only)." }));
+      return block;
+    }
+
+    var loc = entry.loc;
+    var toggle = h("button", { type: "button" });
+    tools.appendChild(toggle);
+    if (file.isRenamed) {
+      head.appendChild(h("div", { class: "fnote info" }, withCode(["Renamed from ", file.oldPath, ""])));
+    }
+    if (loc.mode === "lines") {
+      head.appendChild(h("div", { class: "fnote info" },
+        withCode(["Showing lines ", loc.label, " from the mapping."])));
+    } else if (entry.linesProblem) {
+      head.appendChild(h("div", { class: "fnote warn" }, withCode(entry.linesProblem.problem === "missing"
+        ? ["⚠ Lines ", entry.linesProblem.label, " are not in the diff; locating the symbol instead."]
+        : ["⚠ Symbol ", ref.symbol, " is not in lines " + entry.linesProblem.label + "; locating the symbol instead."])));
+    }
+    if (loc.mode === "fallback" && loc.found) {
+      head.appendChild(h("div", { class: "fnote info" },
+        withCode(["Declaration of ", ref.symbol, " not located; showing all changes."])));
+    } else if (loc.mode === "fallback") {
+      head.appendChild(h("div", { class: "fnote warn" },
+        withCode(["⚠ Symbol ", ref.symbol, " not found in this file; showing all changes."])));
+    } else if (loc.side === "old") {
+      head.appendChild(h("div", { class: "fnote info" },
+        withCode(["Declaration of ", ref.symbol, " found in removed lines."])));
+    }
+
+    function allVisible() {
+      for (var i = 0; i < entry.vis.length; i++) if (!entry.vis[i]) return false;
+      return true;
+    }
+    function initialIsAll() {
+      for (var i = 0; i < entry.initial.length; i++) if (!entry.initial[i]) return false;
+      return true;
+    }
+    function update() {
+      body.textContent = "";
+      body.appendChild(renderDiff(file, entry, update));
+      var all = allVisible();
+      toggle.disabled = all && initialIsAll();
+      toggle.textContent = !all ? "Expand all"
+        : loc.mode === "lines" ? "Collapse to lines"
+        : loc.mode === "decl" ? "Collapse to symbol" : "Collapse to changes";
+    }
+    toggle.addEventListener("click", function () {
+      entry.vis = allVisible() ? entry.initial.slice() : new Uint8Array(entry.vis.length).fill(1);
+      update();
+    });
+    update();
+    return block;
+  }
+
+  function renderDiff(file, entry, update) {
+    var tbody = h("tbody");
+    var table = h("table", { class: "diff" }, tbody);
+    var mentions = entry.loc.mode === "fallback" ? entry.loc.mentions : null;
+    var useOld = file.isDeleted;
+    var prevEnd = 0; // last line number (on the numbering side) covered so far
+
+    var runs = new Map();
+    hiddenRuns(file, entry.vis).forEach(function (r) { runs.set(r[0], r[1]); });
+
+    file.hunks.forEach(function (hk) {
+      var start = useOld ? hk.oldStart : hk.newStart;
+      var count = useOld ? hk.oldCount : hk.newCount;
+      if (!file.complete && start > prevEnd + 1) {
+        tbody.appendChild(h("tr", { class: "gap" }, h("td", { colspan: "4" },
+          h("span", { class: "foldbar", text: (start - 1 === prevEnd + 1
+            ? "⋯ line " + (start - 1)
+            : "⋯ lines " + (prevEnd + 1) + "–" + (start - 1)) + " not in diff ⋯" }))));
+      }
+      prevEnd = count === 0 ? start : start + count - 1;
+      tbody.appendChild(h("tr", { class: "hunk" }, h("td", { colspan: "4", text: hk.header })));
+
+      for (var u = hk.start; u < hk.end; u++) {
+        if (runs.has(u)) {
+          var end = runs.get(u);
+          tbody.appendChild(foldRow(file, entry, u, end, update));
+          u = end - 1;
+          continue;
+        }
+        var r = file.rows[u];
+        var cls = r.type === "add" ? "add" : r.type === "del" ? "del" : "ctx";
+        if (entry.inRange[u]) cls += " inrange";
+        if (mentions && mentions.has(u)) cls += " mention";
+        var code = h("td", { class: "code" }, r.text);
+        if (r.noNewline) code.appendChild(h("span", { class: "nonl", text: "⊘ no newline at end of file" }));
+        tbody.appendChild(h("tr", { class: cls },
+          h("td", { class: "ln", text: r.oldNo === null ? "" : String(r.oldNo) }),
+          h("td", { class: "ln", text: r.newNo === null ? "" : String(r.newNo) }),
+          h("td", { class: "mk", text: r.type === "add" ? "+" : r.type === "del" ? "-" : " " }),
+          code));
+      }
+    });
+    return table;
+  }
+
+  function foldRow(file, entry, start, end, update) {
+    var n = end - start, changed = 0;
+    for (var i = start; i < end; i++) if (file.rows[i].type !== "context") changed++;
+    function reveal(from, to) {
+      for (var i = from; i < to; i++) entry.vis[i] = 1;
+      normalize(file, entry.vis);
+      update();
+    }
+    var bar = h("span", { class: "foldbar" },
+      "⋯ " + n + (n === 1 ? " line" : " lines") + " hidden" + (changed ? " (" + changed + " changed)" : "") + " ⋯");
+    if (n > STEP) {
+      bar.appendChild(h("button", { type: "button", title: "Show " + STEP + " more lines above the next block",
+        onclick: function () { reveal(end - STEP, end); } }, "↑ " + STEP));
+      bar.appendChild(h("button", { type: "button", title: "Show " + STEP + " more lines below the previous block",
+        onclick: function () { reveal(start, start + STEP); } }, "↓ " + STEP));
+    }
+    bar.appendChild(h("button", { type: "button", onclick: function () { reveal(start, end); } }, "Show all"));
+    return h("tr", { class: "fold" }, h("td", { colspan: "4" }, bar));
+  }
+
+  // ======================================================================
+  // Start
+  // ======================================================================
+  renderHeaderState();
+  if (selected !== null) select(selected); else renderDetail();
+})();
+</script>
+</body>
+</html>
